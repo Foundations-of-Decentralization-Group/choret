@@ -8,7 +8,7 @@
 (provide define-chor)
 
 (define-for-syntax (project-process-expr process-name stx)
-  (syntax-case stx (com->)
+  (syntax-case stx (com-> local-expr)
     [(com-> [sender sender-local-expr] [reciever reciever-local-var])
      (let ([sender-name (syntax->datum #'sender)]
            [reciever-name (syntax->datum #'reciever)]
@@ -18,6 +18,12 @@
            (if (equal? process-name reciever-name)
                #'(define reciever-local-var (recv sender 'any))
                #f)))]
+    [(local-expr local-proc local-proc-exprs ...)
+     (if (equal?
+          (syntax->datum process-name)
+          (syntax->datum #'local-proc))
+         #'(begin local-proc-exprs ...)
+         #f)]
     [(select-> sender reciever label)
        #'(println 'not-implemented)]
     [(if-> condition [cases] ...)
