@@ -1,29 +1,37 @@
 #lang racket
 
 (require "../simple-networks/simple-networks.rkt")
+(require (for-syntax racket))
 
 (provide require)
 (provide #%app #%datum #%top-interaction #%top #%module-begin)
 
 (provide define-chor)
 
+(begin-for-syntax
+  (define-syntax (cond-proc stx)
+    (syntax-case stx ()
+      [(cond-proc proc-name cases ...)
+       #`(cond
+           #,@(map
+               (lambda (case-expr)
+                 (with-syntax ([(case-name case-body) case-expr])
+                   #`[(equal? proc-name case-name) case-body]))
+               (syntax->list #'(cases ...)))
+           [else #f])])))
+
 (define-for-syntax (project-process-expr process-name stx)
   (syntax-case stx (com-> local-expr)
     [(com-> [sender sender-local-expr] [reciever reciever-local-var])
-     (let ([sender-name (syntax->datum #'sender)]
-           [reciever-name (syntax->datum #'reciever)]
-           [process-name (syntax->datum process-name)])
-       (if (equal? process-name sender-name)
-           #'(send reciever 'any sender-local-expr)
-           (if (equal? process-name reciever-name)
-               #'(define reciever-local-var (recv sender 'any))
-               #f)))]
+       (cond-proc (syntax->datum process-name)
+                  [(syntax->datum #'sender)
+                   #'(send reciever 'any sender-local-expr)]
+                  [(syntax->datum #'reciever)
+                   #'(define reciever-local-var (recv sender 'any))])]
     [(local-expr local-proc local-proc-exprs ...)
-     (if (equal?
-          (syntax->datum process-name)
-          (syntax->datum #'local-proc))
-         #'(begin local-proc-exprs ...)
-         #f)]
+     (cond-proc (syntax->datum #'local-proc)
+                [(syntax->datum process-name)
+                 #'(begin local-proc-exprs ...)])]
     [(select-> sender reciever label)
        #'(println 'not-implemented)]
     [(if-> condition [cases] ...)
@@ -47,7 +55,7 @@
                     #`(define-process #,proc-name
                         #,@(project-process proc-name #'(chor-stx ...))
                         (printf "End of process ~a\n" '#,proc-name)))
-                  (remove #f (syntax->list #'(proc-names ...))))]
+                  (syntax->list #'(proc-names ...)))]
             )
        #`(define-network #,@expr-list (printf "Start chor:\n")))]))
 
