@@ -12,25 +12,29 @@
   (define-syntax (cond-proc stx)
     (syntax-case stx ()
       [(cond-proc proc-name cases ...)
-       #`(cond
-           #,@(map
-               (lambda (case-expr)
-                 (with-syntax ([(case-name case-body) case-expr])
-                   #`[(equal? proc-name case-name) case-body]))
-               (syntax->list #'(cases ...)))
-           [else #f])])))
+       #`(let ([process-name (syntax->datum proc-name)])
+           (cond
+             #,@(map
+                 (lambda (case-expr)
+                   (with-syntax ([(case-name case-body) case-expr])
+                     #`[(equal?
+                         process-name
+                         (syntax->datum case-name))
+                        case-body]))
+                 (syntax->list #'(cases ...)))
+             [else #f]))])))
 
 (define-for-syntax (project-process-expr process-name stx)
   (syntax-case stx (com-> local-expr)
     [(com-> [sender sender-local-expr] [reciever reciever-local-var])
-       (cond-proc (syntax->datum process-name)
-                  [(syntax->datum #'sender)
+       (cond-proc process-name
+                  [#'sender
                    #'(send reciever 'any sender-local-expr)]
-                  [(syntax->datum #'reciever)
+                  [#'reciever
                    #'(define reciever-local-var (recv sender 'any))])]
     [(local-expr local-proc local-proc-exprs ...)
-     (cond-proc (syntax->datum #'local-proc)
-                [(syntax->datum process-name)
+     (cond-proc process-name
+                [#'local-proc
                  #'(begin local-proc-exprs ...)])]
     [(select-> sender reciever label)
        #'(println 'not-implemented)]
