@@ -37,11 +37,20 @@
                 [#'local-proc
                  #'(begin local-proc-exprs ...)])]
     [(select-> sender reciever label)
-       #'(println 'not-implemented)]
+     (raise-syntax-error
+      #f
+      "Not implemented!"
+      stx)]
     [(if-> condition [cases] ...)
-       #'(println 'not-implemented)]
-    [()
-     #'(println 'error-empty)]))
+     (raise-syntax-error
+      #f
+      "Not implemented!"
+      stx)]
+    [_
+     (raise-syntax-error
+      #f
+      "Not a valid simple-choreographies s-expression!"
+      stx)]))
 
 (define-for-syntax (project-process process-name stx)
   (syntax-case stx ()
