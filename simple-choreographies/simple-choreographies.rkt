@@ -93,13 +93,10 @@
 ;; [stx] is the syntax object for which to do the projection. It should be an
 ;; expression containing a sequence of nested sub-expressions which each will
 ;; be projected for the given process.
-(define-for-syntax (project-process process-name stx)
-  (syntax-case stx ()
-    [(process-expr process-exprs ...)
-     (cons
-      (project-process-expr process-name #'process-expr)
-      (project-process process-name #'(process-exprs ...)))]
-    [() '()]))
+(define-for-syntax (project-process process-name process-stx)
+  (map (lambda (proc-expr-stx)
+         (project-process-expr process-name proc-expr-stx))
+       (syntax->list process-stx)))
 
 ;; A macro transformer which defines and creates a projection for a
 ;; choreography.
