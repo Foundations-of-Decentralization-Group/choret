@@ -3,35 +3,15 @@
 (require racket/stxparam)
 
 (require racket/base)
-;;(provide (except-out (all-from-out racket/base) #%module-begin))
 (provide require)
 
 (provide define-network define-process send recv)
 (provide #%app #%datum #%top-interaction #%top)
 
-(struct message (type data) #:prefab)
 (struct process-data (name thread) #:prefab)
 (begin-for-syntax
-  (struct network-data (channels
-                        [channel-count #:mutable]))
   (define channel-count 0)
   (define channels (make-hash)))
-
-;; Not used currently (possibly remove)
-(define-syntax-parameter network-data-stxparam
-  (lambda (stx)
-    (raise-syntax-error
-     #f
-     "Cannot use send or recv outside of a process"
-     stx)))
-
-;; Not used currently (possibly remove)
-(define-syntax-parameter network-channel-count-stxparam
-  (lambda (stx)
-    (raise-syntax-error
-     #f
-     "Cannot use send or recv outside of a process"
-     stx)))
 
 ;; Keeps track of the "init-processes" variable introduced in the
 ;; "define-network" macro. The variable accumulates, at runtime, a list of
@@ -73,8 +53,6 @@
          (sort
           (list (symbol->string proc-x) (symbol->string proc-y)) string<?)])
     (let* ([channel-index-hash channels]
-           ;; (network-data-channels
-           ;;  ((syntax-parameter-value #'network-data-stxparam) #f))]
            [hash-res (hash-ref
                       channel-index-hash
                       procs
@@ -164,10 +142,7 @@
        #'(begin
            (define init-channels '())
            (syntax-parameterize
-               ([network-data-stxparam
-                 (lambda (stx) (network-data (make-hash) 0))]
-                [network-init-channels-stxparam #'init-channels]
-                [network-channel-count-stxparam (lambda (stx) (box 0))])
+               ([network-init-channels-stxparam #'init-channels])
              network-stx ...
              (define channel-vector
                (build-vector
