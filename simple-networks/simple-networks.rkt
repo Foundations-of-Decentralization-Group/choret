@@ -49,26 +49,19 @@
 ;; that pair, otherwise assign a new index for that pair and return the new
 ;; index.
 (define-for-syntax (find-or-create-channel-index proc-x proc-y)
-  (let ([procs
-         (sort
-          (list (symbol->string proc-x) (symbol->string proc-y)) string<?)])
-    (let* ([channel-index-hash channels]
-           [hash-res (hash-ref
-                      channel-index-hash
-                      procs
-                      #f)])
-      (if hash-res
-          hash-res
-          (let ([old-channel-count
-                 channel-count])
-            (begin
-              (printf
-               "new pair ~a assigned index ~a\n"
-               procs
-               old-channel-count)
-              (hash-set! channel-index-hash procs old-channel-count)
-              (set! channel-count (+ 1 old-channel-count))
-              old-channel-count))))))
+  ; Sort the pair so that the order of the process names does not matter.
+  (let* ([procs (sort (map symbol->string (list proc-x proc-y)) string<?)])
+    (or
+     ; Check if the given channel pair already has an index assigned to it; if
+     ; it does, return that index.
+     (hash-ref channels procs #f)
+     ; Otherwise generate, record, and return a new index for the given channel
+     ; pair.
+     (begin
+       (printf "new pair ~a assigned index ~a\n" procs channel-count)
+       (hash-set! channels procs channel-count)
+       (set! channel-count (+ 1 channel-count))
+       (- channel-count 1)))))
 
 (define-syntax (recv stx)
   (syntax-case stx ()
