@@ -57,3 +57,18 @@ To perform (synchronous) communications between processes, the `send` and `recv`
 program­ming using Racket" by Matthew Butt­erick (https://beautifulracket.com/)**
 4. **"Fear of Macros" by Greg Hendershott (https://www.greghendershott.com/fear-of-macros/)**
 5. **Alexis King's Blog (https://lexi-lambda.github.io/)**
+
+## Short-term TODO:
+- [ ] Fix issue where *simple-networks* only supports a fixed number of communication channels.
+- [ ] Implement knowledge of choice for *simple-choreographies*, this also entails implementing the merge operation for *simple-networks*.
+- [ ] Implement a more robust unit-testing framework:
+	- [ ] Have a way to run all the tests at once
+	- [ ] Implement more specific tests for particular features of Choret; such tests should do a decent job of covering potential edge-cases.
+- [ ] Make it so extraneous print statements are not printed by default; perhaps add some kind of "verbose" option for *simple-choreographies* and *simple-networks*.
+
+## Long-term TODO:
+- [ ] Think about how to allow Racket macros to be freely used inside the language for *simple-choreographies*; a good example of this would be figuring out how to use macros to improve the code for the factorial example code.
+- [ ] Think about how the structure of the Choret library may be restructured; it may be beneficial, for example, to add extra intermediate languages which have various levels/forms of abstraction for both high-level choreographic details and low-level implementation details.
+- [ ] What work would need to be done to support higher-order functional Choreographic programming.
+- [ ] Implement some kind of documentation to specify the syntax and semantics of Choret programs.
+- [ ] Use the syntax/parse library.
