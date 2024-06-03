@@ -2,8 +2,7 @@
 
 (require "../simple-networks/simple-networks.rkt")
 (require ee-lib/define)
-(require (for-syntax ee-lib))
-(require (for-syntax racket))
+(require (for-syntax ee-lib racket/base (for-syntax racket/base)))
 
 (provide require)
 (provide #%app #%datum #%top-interaction #%top #%module-begin)
@@ -42,17 +41,15 @@
 
   (define/hygienic (project-chor-exprs stx process-name) #:definition
     (syntax-case stx ()
-      [(chor-expr)
-       (let ([chor-expr^ (project-chor-expr #'chor-expr process-name)])
-         (if chor-expr^
-             #`(#,chor-expr^)
-             #'()))]
       [(chor-expr chor-exprs ...)
-       (let ([chor-expr^ (project-chor-expr #'chor-expr process-name)]
-             [chor-exprs^ (project-chor-exprs #'(chor-exprs ...) process-name)])
-         (if chor-expr^
-             #`(#,chor-expr^ #,@(syntax->list chor-exprs^))
-             #`(#,@(syntax->list chor-exprs^))))]))
+       (with-syntax ([chor-expr^
+                      (project-chor-expr #'chor-expr process-name)]
+                     [chor-exprs^
+                      (project-chor-exprs #'(chor-exprs ...) process-name)])
+         (if (syntax->datum #'chor-expr^)
+             #`(chor-expr^ (~@ . chor-exprs^))
+             #'chor-exprs^))]
+      [() #'()]))
 
   (define/hygienic (project-chor-expr stx process-name) #:definition
     (syntax-case stx (local-define local-expr com->)
