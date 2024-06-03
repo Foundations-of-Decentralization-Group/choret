@@ -1,0 +1,114 @@
+#lang racket
+
+(require "../simple-networks/simple-networks.rkt")
+(require ee-lib/define)
+(require (for-syntax ee-lib))
+(require (for-syntax racket))
+
+(provide require)
+(provide #%app #%datum #%top-interaction #%top #%module-begin)
+
+(provide define-chor)
+
+;; (define-literal-forms chor-literals ""
+;;   (local-expr com->))
+
+(begin-for-syntax
+  (define-syntax (cond-proc stx)
+    (syntax-case stx ()
+      [(cond-proc proc-name cases ...)
+       #`(let ([process-name (syntax->datum proc-name)])
+           (cond
+             #,@(map
+                 (lambda (case-expr)
+                   (with-syntax ([(case-name case-body) case-expr])
+                     #`[(equal?
+                         process-name
+                         (syntax->datum case-name))
+                        case-body]))
+                 (syntax->list #'(cases ...)))
+             [else #f]))]))
+
+  (struct choret-macro [transformer])
+  (struct chor-non-terminal [])
+
+  (provide choret-macro)
+  
+  (define/hygienic (project-process stx process-name) #:definition
+    (with-scope sc
+      #`(define-process #,process-name
+          #,@(project-chor-exprs stx process-name)
+          (printf "End of process ~a\n" '#,process-name))))
+
+  (define/hygienic (project-chor-exprs stx process-name) #:definition
+    (syntax-case stx ()
+      [(chor-expr)
+       (let ([chor-expr^ (project-chor-expr #'chor-expr process-name)])
+         (if chor-expr^
+             #`(#,chor-expr^)
+             #'()))]
+      [(chor-expr chor-exprs ...)
+       (let ([chor-expr^ (project-chor-expr #'chor-expr process-name)]
+             [chor-exprs^ (project-chor-exprs #'(chor-exprs ...) process-name)])
+         (if chor-expr^
+             #`(#,chor-expr^ #,@(syntax->list chor-exprs^))
+             #`(#,@(syntax->list chor-exprs^))))]))
+
+  (define/hygienic (project-chor-expr stx process-name) #:definition
+    (syntax-case stx (local-define local-expr com->)
+      [(local-define local-proc id local-expression)
+       (cond-proc process-name
+                  [#'local-proc
+                   (with-syntax ([id^
+                                  (bind! #'id (racket-var))]
+                                 [local-expr^
+                                  (local-expand
+                                   #'local-expression
+                                   (list (current-ctx-id))
+                                   '()
+                                   (list (current-def-ctx)))])
+                     #'(define id^ local-expr^))])]
+      [(local-expr local-proc local-proc-exprs ...)
+       (cond-proc process-name
+                  [#'local-proc
+                   (with-syntax ([local-proc-exprs^
+                                  (local-expand
+                                   #'(begin local-proc-exprs ...)
+                                   (list (current-ctx-id))
+                                   '()
+                                   (list (current-def-ctx)))])
+                     #'(begin local-proc-exprs^))])]
+      [(com-> [sender sender-local-expr] [reciever reciever-local-var])
+       (cond-proc process-name
+                  [#'sender
+                   (with-syntax ([sender-local-expr^
+                                  (local-expand
+                                   #'sender-local-expr
+                                   (list (current-ctx-id))
+                                   '()
+                                   (list (current-def-ctx)))])
+                     #'(send reciever 'any sender-local-expr^))]
+                  [#'reciever
+                   (with-syntax ([reciever-local-var^
+                                  (bind! #'reciever-local-var (racket-var))])
+                     #'(define reciever-local-var^ (recv sender 'any)))])]
+      [(macro-name body ...)
+       (lookup #'macro-name choret-macro?)
+       (let* ([transformer
+               (choret-macro-transformer
+                (lookup #'macro-name choret-macro?))]
+              [stx^ (project-chor-exprs #`(#,(transformer stx)) process-name)])
+         (if (eq? (syntax-e stx^) '())
+             #f
+             #`(#,@(car (syntax->list stx^)))))
+;         #'(println 'test)
+         ])))
+
+(define-syntax (define-chor stx)
+  (syntax-case stx ()
+    [(_ (proc-names ...) chor-exprs ...)
+     (let* ([proc-list^
+             (map (lambda (proc-name)
+                    (project-process #'(chor-exprs ...) proc-name))
+                  (syntax->list #'(proc-names ...)))])
+       #`(define-network #,@proc-list^))]))
