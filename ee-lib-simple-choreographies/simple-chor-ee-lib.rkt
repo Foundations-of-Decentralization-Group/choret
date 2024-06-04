@@ -33,13 +33,13 @@
 
   (provide choret-macro)
   
-  (define/hygienic (project-process stx process-name) #:definition
+  (define (project-process stx process-name)
     (with-scope sc
       #`(define-process #,process-name
           #,@(project-chor-exprs stx process-name)
           (printf "End of process ~a\n" '#,process-name))))
 
-  (define/hygienic (project-chor-exprs stx process-name) #:definition
+  (define (project-chor-exprs stx process-name)
     (syntax-case stx ()
       [(chor-expr chor-exprs ...)
        (with-syntax ([chor-expr^
@@ -51,7 +51,7 @@
              #'chor-exprs^))]
       [() #'()]))
 
-  (define/hygienic (project-chor-expr stx process-name) #:definition
+  (define (project-chor-expr stx process-name)
     (syntax-case stx (local-define local-expr com->)
       [(local-define local-proc id local-expression)
        (cond-proc process-name
