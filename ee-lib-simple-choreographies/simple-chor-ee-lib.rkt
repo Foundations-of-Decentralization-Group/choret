@@ -13,6 +13,30 @@
 ;;   (local-expr com->))
 
 (begin-for-syntax
+
+  ;; A "macro-macro" meant to be used in the "project-chor-expr" syntax
+  ;; function.
+  ;;
+  ;; [cond-proc] has the following form:
+  ;; (cond-proc PROCESS-NAME CASES ...)
+  ;;
+  ;; PROCESS-NAME must be a variable containing syntax object; this syntax oject
+  ;; should simply conain a symbol datum representing the name of the process to
+  ;; project onto.
+  ;;
+  ;; CASES describes what to do for a given match against the process name;
+  ;; it has the following form:
+  ;; (CASE-NAME CASE-EXPR)
+  ;;
+  ;; CASE-NAME must be a variable containing syntax object; this syntax oject
+  ;; should simply conain a symbol datum representing the name of the process to
+  ;; match against PROCESS-NAME.
+  ;;
+  ;; CASE-EXPR is the expression to evaluate if CASE-NAME and PROCESS-NAME
+  ;; have equal symbol datums.
+  ;;
+  ;; In the event that none of the CASE-NAMEs match PROCESS-NAME, then #f is
+  ;; returned.
   (define-syntax (cond-proc stx)
     (syntax-case stx ()
       [(cond-proc proc-name cases ...)
@@ -32,13 +56,19 @@
   (struct chor-non-terminal [])
 
   (provide choret-macro)
-  
+
+  ;; For the given syntax of the choreography [stx] and a process name
+  ;; [process-name], project the program specifically for the given
+  ;; [process-name] and wrap it in a 'define-process' form.
   (define (project-process stx process-name)
     (with-scope sc
       #`(define-process #,process-name
           #,@(project-chor-exprs stx process-name)
           (printf "End of process ~a\n" '#,process-name))))
 
+  ;; For the given body syntax of the choreography [stx] and a process name
+  ;; [process-name], recursively get the next program term/expression and
+  ;; perform projection for that individual term.
   (define (project-chor-exprs stx process-name)
     (syntax-case stx ()
       [(chor-expr chor-exprs ...)
@@ -51,6 +81,7 @@
              #'chor-exprs^))]
       [() #'()]))
 
+  ;; Project an individual program term/expression.
   (define (project-chor-expr stx process-name)
     (syntax-case stx (local-define local-expr com-> chor-begin)
       [(local-define local-proc id local-expression)
@@ -102,6 +133,9 @@
               [stx^ (project-chor-expr (transformer stx) process-name)])
          (if stx^ #`(#,@(syntax->list stx^)) #f))])))
 
+;; Entry point macro for simple-choreographies; calls the 'project-process'
+;; syntax transformer, which implements the simple-choreographies DSL using the
+;; 'ee-lib' library.
 (define-syntax (define-chor stx)
   (syntax-case stx ()
     [(_ (proc-names ...) chor-exprs ...)
