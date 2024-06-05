@@ -99,12 +99,8 @@
        (let* ([transformer
                (choret-macro-transformer
                 (lookup #'macro-name choret-macro?))]
-              [stx^ (project-chor-exprs #`(#,(transformer stx)) process-name)])
-         (if (eq? (syntax-e stx^) '())
-             #f
-             #`(#,@(car (syntax->list stx^)))))
-;         #'(println 'test)
-         ])))
+              [stx^ (project-chor-expr (transformer stx) process-name)])
+         (if stx^ #`(#,@(syntax->list stx^)) #f))])))
 
 (define-syntax (define-chor stx)
   (syntax-case stx ()
