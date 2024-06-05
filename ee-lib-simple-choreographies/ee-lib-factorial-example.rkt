@@ -41,14 +41,20 @@
   (local-define Main final-result 0)
 
   ; Send the ranges to all the processes
-  (com-> [Main (vector-ref ranges 0)] [P1 range])
-  (com-> [Main (vector-ref ranges 1)] [P2 range])
-  (com-> [Main (vector-ref ranges 2)] [P3 range])
-  (com-> [Main (vector-ref ranges 3)] [P4 range])
-  (com-> [Main (vector-ref ranges 4)] [P5 range])
-  (com-> [Main (vector-ref ranges 5)] [P6 range])
-  (com-> [Main (vector-ref ranges 6)] [P7 range])
-  (com-> [Main (vector-ref ranges 7)] [P8 range])
+  ; chor-begin forms were added just to test/demonstrate that the chor-begin
+  ; form works
+  (chor-begin)
+  (chor-begin
+   (com-> [Main (vector-ref ranges 0)] [P1 range])
+   (com-> [Main (vector-ref ranges 1)] [P2 range])
+   (com-> [Main (vector-ref ranges 2)] [P3 range])
+   (com-> [Main (vector-ref ranges 3)] [P4 range])
+   (chor-begin
+    (com-> [Main (vector-ref ranges 4)] [P5 range])
+    (com-> [Main (vector-ref ranges 5)] [P6 range])
+    (chor-begin)
+    (com-> [Main (vector-ref ranges 6)] [P7 range])
+    (com-> [Main (vector-ref ranges 7)] [P8 range])))
 
   ; Have each process compute its local value
   (local-define P1 result 0)

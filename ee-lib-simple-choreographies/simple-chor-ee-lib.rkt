@@ -52,7 +52,7 @@
       [() #'()]))
 
   (define (project-chor-expr stx process-name)
-    (syntax-case stx (local-define local-expr com->)
+    (syntax-case stx (local-define local-expr com-> chor-begin)
       [(local-define local-proc id local-expression)
        (cond-proc process-name
                   [#'local-proc
@@ -89,6 +89,11 @@
                    (with-syntax ([reciever-local-var^
                                   (bind! #'reciever-local-var (racket-var))])
                      #'(define reciever-local-var^ (recv sender 'any)))])]
+      [(chor-begin body ...)
+       (let* ([stx^ (project-chor-exprs #'(body ...) process-name)])
+         (if (eq? (syntax-e stx^) '())
+             #f
+             #`(begin #,@(syntax->list stx^))))]
       [(macro-name body ...)
        (lookup #'macro-name choret-macro?)
        (let* ([transformer
