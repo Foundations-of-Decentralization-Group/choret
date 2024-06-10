@@ -1,3 +1,0 @@
-#lang racket
-
-10
