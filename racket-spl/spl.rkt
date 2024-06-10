@@ -49,7 +49,7 @@
         t2-arg-types)
        (eq/type? t1-ret-type t2-ret-type))))
 
-  (define/hygienic (spl-expand stx) #:definition
+  (define/hygienic (spl-expand stx) #:expression
     (syntax-parse stx #:literal-sets (spl-literals)
       [num-lit:number
        (syntax-property
@@ -122,24 +122,25 @@
 
 
       [(lambda/spl ([types args:id] ...) ret-type body:expr)
-       (define/syntax-parse
-         args^ #`(#,@(for/list ([i (syntax->list #'([types args] ...))])
-                       (with-syntax ([(typ arg) i])
-                         (bind! #'arg (spl-variable (parse-type #'typ)))))))
-       (define arg-types (for/list ([typ (syntax->list #'(types ...))])
-                           (parse-type typ)))
-       (define ret-typ (parse-type #'ret-type))
-       (define/syntax-parse body^ (spl-expand #'body))
-       (define body-type (syntax-property #'body^ 'type))
-       (unless (eq/type? body-type ret-typ)
-         (raise-syntax-error
-          #f
-          "Return type does not match body type!"
-          this-syntax))
-       (syntax-property
-        #'(lambda args^ body^)
-        'type
-        (spl-type 'lambda (lambda-type arg-types ret-typ)))]
+       (with-scope sc
+         (define/syntax-parse
+           args^ #`(#,@(for/list ([i (syntax->list #'([types args] ...))])
+                         (with-syntax ([(typ arg) i])
+                           (bind! #'arg (spl-variable (parse-type #'typ)))))))
+         (define arg-types (for/list ([typ (syntax->list #'(types ...))])
+                             (parse-type typ)))
+         (define ret-typ (parse-type #'ret-type))
+         (define/syntax-parse body^ (spl-expand #'body))
+         (define body-type (syntax-property #'body^ 'type))
+         (unless (eq/type? body-type ret-typ)
+           (raise-syntax-error
+            #f
+            "Return type does not match body type!"
+            this-syntax))
+         (syntax-property
+          #'(lambda args^ body^)
+          'type
+          (spl-type 'lambda (lambda-type arg-types ret-typ))))]
 
 
       [(seq/spl first:expr second:expr)
