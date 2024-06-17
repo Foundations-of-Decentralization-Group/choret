@@ -4,18 +4,20 @@
 (require (for-syntax ee-lib syntax/parse racket/base "spl-type.rkt"))
 
 (define-literal-forms spl-literals "Cannot use an spl form in Racket."
-  (let/spl lambda/spl seq/spl add-int/spl and/spl println/spl))
+  (let/spl lambda/spl seq/spl add-int/spl and/spl println/spl let-syntax/spl))
 
 ;; Provide the standard spl literals
-(provide let/spl lambda/spl seq/spl add-int/spl and/spl println/spl)
+(provide let/spl lambda/spl seq/spl add-int/spl and/spl println/spl let-syntax/spl)
 ;; Require and re-provide the literals for spl types
 (require  "spl-type-forms.rkt")
 (provide (all-from-out "spl-type-forms.rkt"))
 ;; Use racket/base as the base environment for spl
 (provide (except-out (all-from-out racket/base) #%module-begin))
+(provide (for-syntax (except-out (all-from-out racket/base) #%module-begin)))
 
 (begin-for-syntax
   (struct spl-variable [type])
+  (struct spl-macro [transformer])
 
   (define/hygienic (spl-expand stx) #:expression
     (syntax-parse stx #:literal-sets (spl-literals)
@@ -40,6 +42,16 @@
         #'var-use
         'type
         (spl-variable-type var))]
+
+
+      [(macro-use:id rest:expr ...)
+       #:when (lookup #'macro-use spl-macro?)
+       (define var (lookup #'macro-use))
+       (spl-expand
+        (apply-as-transformer (lambda (stx) ((spl-macro-transformer var) stx))
+                              #'macro-use
+                              'expression
+                              stx))]
 
 
       [(func:id arg:expr ...)
@@ -87,6 +99,12 @@
           #'(let ([var-name^ val-exp^]) sub-exp^)
           'type
           sub-exp-type))]
+
+
+      [(let-syntax/spl (name:id val:expr) body:expr)
+       (with-scope sc
+         (bind! #'name (spl-macro (eval-transformer #'val)))
+         (spl-expand #'body))]
 
 
       [(lambda/spl ([types args:id] ...) ret-type body:expr)
