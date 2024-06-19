@@ -45,17 +45,20 @@
              #,@(map
                  (lambda (case-expr)
                    (with-syntax ([(case-name case-body) case-expr])
-                     #`[(equal?
-                         process-name
-                         (syntax->datum case-name))
+                     #`[(free-identifier=? case-name proc-name)
                         case-body]))
                  (syntax->list #'(cases ...)))
              [else #f]))]))
 
   (struct choret-macro [transformer])
-  (struct chor-non-terminal [])
+  (struct chor-process-variable [])
 
   (provide choret-macro)
+
+  (define (valid-processes? . processes)
+    (for/and ([proc processes])
+      (unless (lookup proc)
+        (raise-syntax-error #f "Undefined process name!" proc))))
 
   ;; For the given syntax of the choreography [stx] and a process name
   ;; [process-name], project the program specifically for the given
@@ -85,6 +88,7 @@
   (define (project-chor-expr stx process-name)
     (syntax-case stx (local-define local-expr com-> chor-begin)
       [(local-define local-proc id local-expression)
+       (valid-processes? #'local-proc)
        (cond-proc process-name
                   [#'local-proc
                    (with-syntax ([id^
@@ -97,6 +101,7 @@
                                    (list (current-def-ctx)))])
                      #'(define id^ local-expr^))])]
       [(local-expr local-proc local-proc-exprs ...)
+       (valid-processes? #'local-proc)
        (cond-proc process-name
                   [#'local-proc
                    (with-syntax ([local-proc-exprs^
@@ -107,6 +112,7 @@
                                    (list (current-def-ctx)))])
                      #'(begin local-proc-exprs^))])]
       [(com-> [sender sender-local-expr] [reciever reciever-local-var])
+       (valid-processes? #'sender #'reciever)
        (cond-proc process-name
                   [#'sender
                    (with-syntax ([sender-local-expr^
@@ -130,17 +136,30 @@
        (let* ([transformer
                (choret-macro-transformer
                 (lookup #'macro-name choret-macro?))]
-              [stx^ (project-chor-expr (transformer stx) process-name)])
-         (if stx^ #`(#,@(syntax->list stx^)) #f))])))
+              [stx^ (apply-as-transformer
+                     transformer
+                     #'macro-name
+                     'definition
+                     stx)]
+              [stx^^ (project-chor-expr stx^ process-name)])
+         (if stx^^ #`(#,@(syntax->list stx^^)) #f))])))
 
 ;; Entry point macro for simple-choreographies; calls the 'project-process'
 ;; syntax transformer, which implements the simple-choreographies DSL using the
 ;; 'ee-lib' library.
 (define-syntax (define-chor stx)
-  (syntax-case stx ()
-    [(_ (proc-names ...) chor-exprs ...)
-     (let* ([proc-list^
-             (map (lambda (proc-name)
-                    (project-process #'(chor-exprs ...) proc-name))
-                  (syntax->list #'(proc-names ...)))])
-       #`(define-network #,@proc-list^))]))
+  (with-scope chor-top-sc
+      (syntax-case stx ()
+        [(_ (proc-names ...) chor-exprs ...)
+         (with-syntax ([chor-exprs^ (add-scope #'(chor-exprs ...) chor-top-sc)])
+           (let* ([proc-bindings
+                   (map (lambda (proc-name)
+                          (bind!
+                           (add-scope proc-name chor-top-sc)
+                           (chor-process-variable)))
+                        (syntax->list #'(proc-names ...)))]
+                  [proc-list^
+                   (map (lambda (proc-name)
+                          (project-process #'chor-exprs^ proc-name))
+                        proc-bindings)])
+             #`(define-network #,@proc-list^)))])))

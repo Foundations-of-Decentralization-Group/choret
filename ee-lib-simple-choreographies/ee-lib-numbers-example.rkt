@@ -1,11 +1,18 @@
 #lang s-exp "simple-chor-ee-lib.rkt"
 
-(require racket/base)
+(require racket/base (for-syntax racket/base))
 (require rackunit)
+
+(define-syntax my-com->
+  (choret-macro
+   (lambda (stx)
+     (syntax-case stx ()
+       [(_ sender reciever)
+        #'(com-> sender reciever)]))))
 
 (define-chor [A B C D]
   (local-define A x 12)
-  (com-> [A 10] [C c1])               ;; A.10 -> C.c1
+  (my-com-> [A 10] [C c1])               ;; A.10 -> C.c1
   (local-expr C (check-equal? c1 10))
   (com-> [B 100] [C c2])              ;; B.100 -> C.c2
   (local-expr C (check-equal? c2 100))
