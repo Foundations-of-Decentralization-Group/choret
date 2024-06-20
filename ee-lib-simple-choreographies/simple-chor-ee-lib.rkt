@@ -86,7 +86,8 @@
 
   ;; Project an individual program term/expression.
   (define (project-chor-expr stx process-name)
-    (syntax-case stx (local-define local-expr com-> chor-begin)
+    (syntax-case stx
+      (local-define local-expr com-> chor-begin define-syntax/chor)
       [(local-define local-proc id local-expression)
        (valid-processes? #'local-proc)
        (cond-proc process-name
@@ -131,16 +132,15 @@
          (if (eq? (syntax-e stx^) '())
              #f
              #`(begin #,@(syntax->list stx^))))]
+      [(define-syntax/chor name val)
+       (bind! #'name (choret-macro (eval-transformer #'val)))
+       #f]
       [(macro-name body ...)
        (lookup #'macro-name choret-macro?)
        (let* ([transformer
                (choret-macro-transformer
                 (lookup #'macro-name choret-macro?))]
-              [stx^ (apply-as-transformer
-                     transformer
-                     #'macro-name
-                     'definition
-                     stx)]
+              [stx^ (transformer stx)]
               [stx^^ (project-chor-expr stx^ process-name)])
          (if stx^^ #`(#,@(syntax->list stx^^)) #f))])))
 

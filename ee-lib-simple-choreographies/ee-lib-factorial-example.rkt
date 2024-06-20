@@ -7,25 +7,12 @@
 (define-syntax-rule (compute-local-factorial result range)
   (set! result (foldl * 1 (stream->list (in-range (car range) (cdr range))))))
 
-(define-syntax print-local-result
+(define-syntax local-define-multiple
   (choret-macro
    (lambda (stx)
      (syntax-case stx ()
-       [(_ proc-name)
-        #'(local-expr
-           proc-name
-           (printf "Local result on ~a: ~a\n" 'proc-name result))]))))
-
-(define-syntax comp-locals
-  (choret-macro
-   (lambda (stx)
-     (syntax-case stx ()
-       [(_ proc-name ...)
-        #`(chor-begin
-           #,@(for/list ([i (syntax->list #'(proc-name ...))])
-                #`(chor-begin
-                   (local-expr #,i (compute-local-factorial result range))
-                   (print-local-result #,i))))]))))
+       [(_ (proc ...) name value)
+        #'(chor-begin (local-define proc name value) ...)]))))
 
 (define-syntax gather->
   (choret-macro
@@ -68,16 +55,27 @@
   (com-> [Main (vector-ref ranges 6)] [P7 range])
   (com-> [Main (vector-ref ranges 7)] [P8 range])
 
-  ; Have each process compute its local value
-  (local-define P1 result 0)
-  (local-define P2 result 0)
-  (local-define P3 result 0)
-  (local-define P4 result 0)
-  (local-define P5 result 0)
-  (local-define P6 result 0)
-  (local-define P7 result 0)
-  (local-define P8 result 0)
+  (local-define-multiple (P1 P2 P3 P4 P5 P6 P7 P8) result 0)
 
+  (define-syntax/chor print-local-result
+    (lambda (stx)
+      (syntax-case stx ()
+        [(_ proc-name)
+         #'(local-expr
+            proc-name
+            (printf "Local result on ~a: ~a\n" 'proc-name result))])))
+
+  (define-syntax/chor comp-locals
+    (lambda (stx)
+      (syntax-case stx ()
+        [(_ proc-name ...)
+         #`(chor-begin
+            #,@(for/list ([i (syntax->list #'(proc-name ...))])
+                 #`(chor-begin
+                    (local-expr #,i (compute-local-factorial result range))
+                    (print-local-result #,i))))])))
+
+  ; Have each process compute its local value
   (comp-locals P1 P2 P3 P4 P5 P6 P7 P8)
 
   ; Send the result of computing each range product back to the Main process
