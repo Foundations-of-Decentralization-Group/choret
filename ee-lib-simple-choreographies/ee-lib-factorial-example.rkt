@@ -1,8 +1,6 @@
 #lang s-exp "simple-chor-ee-lib.rkt"
 
-(require racket/base (for-syntax racket/base))
-(require racket/stream)
-(require rackunit)
+(require racket/stream rackunit)
 
 (define-syntax-rule (compute-local-factorial result range)
   (set! result (foldl * 1 (stream->list (in-range (car range) (cdr range))))))

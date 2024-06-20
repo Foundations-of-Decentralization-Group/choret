@@ -1,6 +1,5 @@
 #lang s-exp "simple-chor-ee-lib.rkt"
 
-(require racket/base (for-syntax racket/base))
 (require rackunit)
 
 (define-syntax my-com->

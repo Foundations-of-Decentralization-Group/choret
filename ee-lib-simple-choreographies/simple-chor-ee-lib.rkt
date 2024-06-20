@@ -1,19 +1,26 @@
-#lang racket
+#lang racket/base
 
-(require "../simple-networks/simple-networks.rkt")
-(require ee-lib/define)
-(require (for-syntax ee-lib racket/base syntax/parse (for-syntax racket/base)))
+(require
+ racket/base ee-lib/define
+ (except-in "../simple-networks/simple-networks.rkt" #%module-begin)
+ (for-syntax
+  racket/base ee-lib syntax/parse
+  (for-syntax
+   racket/base)))
 
-(provide require)
-(provide #%app #%datum #%top-interaction #%top #%module-begin)
-
-(provide define-chor)
+(provide
+ (all-from-out racket/base)
+ ;; Provide the interface macro for Choret
+ define-chor
+ ;; Provide the literals of Choret
+ local-define local-expr com-> chor-begin define-syntax/chor
+ (for-syntax
+  (all-from-out racket/base)
+  ;; Provide the struct representing a Choret macro.
+  choret-macro))
 
 (define-literal-forms chor-literals "Cannot use a Choret literal in Racket!"
   (local-define local-expr com-> chor-begin define-syntax/chor))
-
-;; Provide the literals of Choret
-(provide local-define local-expr com-> chor-begin define-syntax/chor)
 
 (begin-for-syntax
 
@@ -55,8 +62,6 @@
 
   (struct choret-macro [transformer])
   (struct chor-process-variable [])
-
-  (provide choret-macro)
 
   (define (valid-processes? . processes)
     (for/and ([proc processes])

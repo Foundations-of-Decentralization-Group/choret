@@ -1,7 +1,5 @@
 #lang s-exp "simple-chor-ee-lib.rkt"
 
-(require racket/base (for-syntax racket/base))
-
 (define-syntax print-plus-x
   (choret-macro
    (lambda (stx)

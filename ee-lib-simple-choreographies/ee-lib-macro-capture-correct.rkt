@@ -1,7 +1,5 @@
  #lang s-exp "simple-chor-ee-lib.rkt"
 
-(require racket/base (for-syntax racket/base))
-
 (define-chor [A]
   (local-define A x 12)
 
