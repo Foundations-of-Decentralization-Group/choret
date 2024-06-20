@@ -13,14 +13,14 @@
  ;; Provide the interface macro for Choret
  define-chor
  ;; Provide the literals of Choret
- local-define local-expr com-> chor-begin define-syntax/chor
+ define-local expr-local com-> begin/chor define-syntax/chor
  (for-syntax
   (all-from-out racket/base)
   ;; Provide the struct representing a Choret macro.
-  choret-macro))
+  chor-macro))
 
 (define-literal-forms chor-literals "Cannot use a Choret literal in Racket!"
-  (local-define local-expr com-> chor-begin define-syntax/chor))
+  (define-local expr-local com-> begin/chor define-syntax/chor))
 
 (begin-for-syntax
 
@@ -60,7 +60,7 @@
                  (syntax->list #'(cases ...)))
              [else #f]))]))
 
-  (struct choret-macro [transformer])
+  (struct chor-macro [transformer])
   (struct chor-process-variable [])
 
   (define (valid-processes? . processes)
@@ -95,7 +95,7 @@
   ;; Project an individual program term/expression.
   (define (project-chor-expr stx process-name)
     (syntax-parse stx #:literal-sets (chor-literals)
-      [(local-define local-proc id local-expression)
+      [(define-local local-proc id local-expression)
        #:when (valid-processes? #'local-proc)
        (cond-proc process-name
                   [#'local-proc
@@ -110,7 +110,7 @@
                      #'(define id^ local-expr^))])]
 
 
-      [(local-expr local-proc local-proc-exprs ...)
+      [(expr-local local-proc local-proc-exprs ...)
        #:when (valid-processes? #'local-proc)
        (cond-proc process-name
                   [#'local-proc
@@ -140,7 +140,7 @@
                      #'(define reciever-local-var^ (recv sender 'any)))])]
 
 
-      [(chor-begin body ...)
+      [(begin/chor body ...)
        (let* ([stx^ (project-chor-exprs #'(body ...) process-name)])
          (if (eq? (syntax-e stx^) '())
              #f
@@ -148,15 +148,15 @@
 
 
       [(define-syntax/chor name val)
-       (bind! #'name (choret-macro (eval-transformer #'val)))
+       (bind! #'name (chor-macro (eval-transformer #'val)))
        #f]
 
 
       [(macro-name body ...)
-       #:when (lookup #'macro-name choret-macro?)
+       #:when (lookup #'macro-name chor-macro?)
        (let* ([transformer
-               (choret-macro-transformer
-                (lookup #'macro-name choret-macro?))]
+               (chor-macro-transformer
+                (lookup #'macro-name chor-macro?))]
               [stx^ (transformer stx)]
               [stx^^ (project-chor-expr stx^ process-name)])
          (if stx^^ #`(#,@(syntax->list stx^^)) #f))])))

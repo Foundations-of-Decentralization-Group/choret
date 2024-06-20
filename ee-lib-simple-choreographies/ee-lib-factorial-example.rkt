@@ -5,21 +5,21 @@
 (define-syntax-rule (compute-local-factorial result range)
   (set! result (foldl * 1 (stream->list (in-range (car range) (cdr range))))))
 
-(define-syntax local-define-multiple
-  (choret-macro
+(define-syntax define-local-multiple
+  (chor-macro
    (lambda (stx)
      (syntax-case stx ()
        [(_ (proc ...) name value)
-        #'(chor-begin (local-define proc name value) ...)]))))
+        #'(begin/chor (define-local proc name value) ...)]))))
 
 (define-syntax gather->
-  (choret-macro
+  (chor-macro
    (lambda (stx)
      (syntax-case stx ()
        [(_ [(senders ...) expr] [reciever (ids ...)])
         (let ([senders* (syntax->list #'(senders ...))]
               [ids* (syntax->list #'(ids ...))])
-          #`(chor-begin
+          #`(begin/chor
              #,@(map
                  (lambda (sender id) #`(com-> [#,sender expr] [reciever #,id]))
                  senders*
@@ -28,10 +28,10 @@
 (define-chor [Main P1 P2 P3 P4 P5 P6 P7 P8]
   ; Split the work of coputing the factorial into ranges for each
   ; process.
-  (local-define Main factorial 120)
-  (local-define Main num-processes 8)
-  (local-define Main step (ceiling (/ factorial num-processes)))
-  (local-define
+  (define-local Main factorial 120)
+  (define-local Main num-processes 8)
+  (define-local Main step (ceiling (/ factorial num-processes)))
+  (define-local
    Main
    ranges (build-vector
            num-processes
@@ -39,10 +39,10 @@
              (let ([start (add1 (* step x))]
                    [end (add1 (* step (add1 x)))])
                (cons start (min end (add1 factorial)))))))
-  (local-define Main final-result 0)
+  (define-local Main final-result 0)
 
   ; Send the ranges to all the processes
-  ; chor-begin forms were added just to test/demonstrate that the chor-begin
+  ; begin/chor forms were added just to test/demonstrate that the begin/chor
   ; form works
   (com-> [Main (vector-ref ranges 0)] [P1 range])
   (com-> [Main (vector-ref ranges 1)] [P2 range])
@@ -53,13 +53,13 @@
   (com-> [Main (vector-ref ranges 6)] [P7 range])
   (com-> [Main (vector-ref ranges 7)] [P8 range])
 
-  (local-define-multiple (P1 P2 P3 P4 P5 P6 P7 P8) result 0)
+  (define-local-multiple (P1 P2 P3 P4 P5 P6 P7 P8) result 0)
 
   (define-syntax/chor print-local-result
     (lambda (stx)
       (syntax-case stx ()
         [(_ proc-name)
-         #'(local-expr
+         #'(expr-local
             proc-name
             (printf "Local result on ~a: ~a\n" 'proc-name result))])))
 
@@ -67,10 +67,10 @@
     (lambda (stx)
       (syntax-case stx ()
         [(_ proc-name ...)
-         #`(chor-begin
+         #`(begin/chor
             #,@(for/list ([i (syntax->list #'(proc-name ...))])
-                 #`(chor-begin
-                    (local-expr #,i (compute-local-factorial result range))
+                 #`(begin/chor
+                    (expr-local #,i (compute-local-factorial result range))
                     (print-local-result #,i))))])))
 
   ; Have each process compute its local value
@@ -82,7 +82,7 @@
    [Main (p1-res p2-res p3-res p4-res p5-res p6-res p7-res p8-res)])
 
   ; Let the Main process compute the overall product to calculate the factorial
-  (local-expr Main
+  (expr-local Main
               (set! final-result (* p1-res p2-res p3-res p4-res
                                     p5-res p6-res p7-res p8-res))
    (check-equal?
