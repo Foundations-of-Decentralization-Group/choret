@@ -2,15 +2,18 @@
 
 (require "../simple-networks/simple-networks.rkt")
 (require ee-lib/define)
-(require (for-syntax ee-lib racket/base (for-syntax racket/base)))
+(require (for-syntax ee-lib racket/base syntax/parse (for-syntax racket/base)))
 
 (provide require)
 (provide #%app #%datum #%top-interaction #%top #%module-begin)
 
 (provide define-chor)
 
-;; (define-literal-forms chor-literals ""
-;;   (local-expr com->))
+(define-literal-forms chor-literals "Cannot use a Choret literal in Racket!"
+  (local-define local-expr com-> chor-begin define-syntax/chor))
+
+;; Provide the literals of Choret
+(provide local-define local-expr com-> chor-begin define-syntax/chor)
 
 (begin-for-syntax
 
@@ -86,10 +89,9 @@
 
   ;; Project an individual program term/expression.
   (define (project-chor-expr stx process-name)
-    (syntax-case stx
-      (local-define local-expr com-> chor-begin define-syntax/chor)
+    (syntax-parse stx #:literal-sets (chor-literals)
       [(local-define local-proc id local-expression)
-       (valid-processes? #'local-proc)
+       #:when (valid-processes? #'local-proc)
        (cond-proc process-name
                   [#'local-proc
                    (with-syntax ([id^
@@ -101,8 +103,10 @@
                                    '()
                                    (list (current-def-ctx)))])
                      #'(define id^ local-expr^))])]
+
+
       [(local-expr local-proc local-proc-exprs ...)
-       (valid-processes? #'local-proc)
+       #:when (valid-processes? #'local-proc)
        (cond-proc process-name
                   [#'local-proc
                    (with-syntax ([local-proc-exprs^
@@ -112,8 +116,10 @@
                                    '()
                                    (list (current-def-ctx)))])
                      #'(begin local-proc-exprs^))])]
+
+
       [(com-> [sender sender-local-expr] [reciever reciever-local-var])
-       (valid-processes? #'sender #'reciever)
+       #:when (valid-processes? #'sender #'reciever)
        (cond-proc process-name
                   [#'sender
                    (with-syntax ([sender-local-expr^
@@ -127,16 +133,22 @@
                    (with-syntax ([reciever-local-var^
                                   (bind! #'reciever-local-var (racket-var))])
                      #'(define reciever-local-var^ (recv sender 'any)))])]
+
+
       [(chor-begin body ...)
        (let* ([stx^ (project-chor-exprs #'(body ...) process-name)])
          (if (eq? (syntax-e stx^) '())
              #f
              #`(begin #,@(syntax->list stx^))))]
+
+
       [(define-syntax/chor name val)
        (bind! #'name (choret-macro (eval-transformer #'val)))
        #f]
+
+
       [(macro-name body ...)
-       (lookup #'macro-name choret-macro?)
+       #:when (lookup #'macro-name choret-macro?)
        (let* ([transformer
                (choret-macro-transformer
                 (lookup #'macro-name choret-macro?))]
