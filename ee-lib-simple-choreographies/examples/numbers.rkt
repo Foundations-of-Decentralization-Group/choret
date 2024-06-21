@@ -1,4 +1,4 @@
-#lang s-exp "simple-chor-ee-lib.rkt"
+#lang s-exp "../simple-choreographies.rkt"
 
 (require rackunit)
 

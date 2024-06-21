@@ -1,4 +1,4 @@
- #lang s-exp "simple-chor-ee-lib.rkt"
+#lang s-exp "../simple-choreographies.rkt"
 
 (define-chor [A]
   (define-local A x 12)
