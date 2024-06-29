@@ -2,7 +2,7 @@
 
 (require
  racket/base ee-lib/define
- (except-in "../simple-networks/simple-networks.rkt" #%module-begin)
+ (except-in "../simple-projections/simple-projections.rkt" #%module-begin)
  (for-syntax
   racket/base ee-lib syntax/parse
   (for-syntax
@@ -73,9 +73,9 @@
   ;; [process-name] and wrap it in a 'define-process' form.
   (define (project-process stx process-name)
     (with-scope sc
-      #`(define-process #,process-name
-          #,@(project-chor-exprs stx process-name)
-          (printf "End of process ~a\n" '#,process-name))))
+      #`(define-projection #,process-name
+          #,@(project-chor-exprs (add-scope stx sc) process-name)
+          (expr-local/proj (printf "End of process ~a\n" '#,process-name)))))
 
   ;; For the given body syntax of the choreography [stx] and a process name
   ;; [process-name], recursively get the next program term/expression and
@@ -99,52 +99,30 @@
        #:when (valid-processes? #'local-proc)
        (cond-proc process-name
                   [#'local-proc
-                   (with-syntax ([id^
-                                  (bind! #'id (racket-var))]
-                                 [local-expr^
-                                  (local-expand
-                                   #'local-expression
-                                   (list (current-ctx-id))
-                                   '()
-                                   (list (current-def-ctx)))])
-                     #'(define id^ local-expr^))])]
+                   #'(define/proj id local-expression)])]
 
 
       [(expr-local local-proc local-proc-exprs ...)
        #:when (valid-processes? #'local-proc)
        (cond-proc process-name
                   [#'local-proc
-                   (with-syntax ([local-proc-exprs^
-                                  (local-expand
-                                   #'(begin local-proc-exprs ...)
-                                   (list (current-ctx-id))
-                                   '()
-                                   (list (current-def-ctx)))])
-                     #'(begin local-proc-exprs^))])]
+                   #'(expr-local/proj local-proc-exprs ...)])]
 
 
       [(com-> [sender sender-local-expr] [reciever reciever-local-var])
        #:when (valid-processes? #'sender #'reciever)
        (cond-proc process-name
                   [#'sender
-                   (with-syntax ([sender-local-expr^
-                                  (local-expand
-                                   #'sender-local-expr
-                                   (list (current-ctx-id))
-                                   '()
-                                   (list (current-def-ctx)))])
-                     #'(send reciever 'any sender-local-expr^))]
+                   #'(send!/proj reciever sender-local-expr)]
                   [#'reciever
-                   (with-syntax ([reciever-local-var^
-                                  (bind! #'reciever-local-var (racket-var))])
-                     #'(define reciever-local-var^ (recv sender 'any)))])]
+                   #`(recv?/proj sender reciever-local-var)])]
 
 
       [(begin/chor body ...)
        (let* ([stx^ (project-chor-exprs #'(body ...) process-name)])
          (if (eq? (syntax-e stx^) '())
              #f
-             #`(begin #,@(syntax->list stx^))))]
+             #`(begin/proj #,@(syntax->list stx^))))]
 
 
       [(define-syntax/chor name val)
@@ -179,4 +157,4 @@
                    (map (lambda (proc-name)
                           (project-process #'chor-exprs^ proc-name))
                         proc-bindings)])
-             #`(define-network #,@proc-list^)))])))
+             #`(simple-projections #,@proc-list^)))])))

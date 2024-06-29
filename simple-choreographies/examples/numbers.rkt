@@ -10,10 +10,16 @@
         #'(com-> sender reciever)]))))
 
 (define-chor [A B C D]
-  (define-local A x 12)
-  (my-com-> [A 10] [C c1])               ;; A.10 -> C.c1
+  (define-local A a 0)
+  (define-local C c1 0)
+  (define-local C c2 0)
+  (define-local C c3 0)
+  (define-local D d1 0)
+  (define-local D d2 0)
+
+  (com-> [A 10] [C c1])               ;; A.10 -> C.c1
   (expr-local C (check-equal? c1 10))
-  (com-> [B 100] [C c2])              ;; B.100 -> C.c2
+  (my-com-> [B 100] [C c2])              ;; B.100 -> C.c2
   (expr-local C (check-equal? c2 100))
   (com-> [C (+ c1 c2)] [D d1])        ;; C.(c1 + c2) -> D.d1
   (expr-local D (check-equal? d1 110))
