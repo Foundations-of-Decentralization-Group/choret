@@ -37,14 +37,44 @@
        "Cannot send!/recv?/select!/branch? on the current process!"
        ctx)))
 
+  (define (matching-names? name1 name2)
+    (unless (free-identifier=? name1 name2)
+      (raise-syntax-error
+       #f
+       "Cannot merge due to mismatched process names!"
+       #f
+       #f
+       (list name1 name2))))
+
+  (define (matching-local-exprs? expr1 expr2)
+    (unless (equal? (syntax->datum expr1) (syntax->datum expr2))
+      (raise-syntax-error
+       #f
+       "Cannot merge mismatched local expressions!"
+       #f
+       #f
+       (list expr1 expr2))))
+
+  (define (matching-labels? label1 label2)
+    (unless (equal? (syntax->datum label1) (syntax->datum label2))
+      (raise-syntax-error
+       #f
+       "Cannot merge mismatched labels!"
+       #f
+       #f
+       (list label1 label2))))
+
   (define (merge expr1 expr2)
     (syntax-parse #`(#,expr1 #,expr2) #:literal-sets (proj-literals)
       [((send!/proj NAME1 EXPR1) (send!/proj NAME2 EXPR2))
-       (if (and
-            (eq? (syntax->datum #'NAME1) (syntax->datum #'NAME2))
-            (eq? (syntax->datum #'EXPR1) (syntax->datum #'EXPR2)))
-           #'(send!/proj NAME1 EXPR1)
-           (raise-syntax-error #f "Could not merge!" this-syntax))]
+       (matching-names? #'NAME1 #'NAME2)
+       (matching-local-exprs? #'EXPR1 #'EXPR2)
+       #'(send!/proj NAME1 EXPR1)]
+
+      [((recv?/proj NAME1 ID1) (recv?/proj NAME2 ID2))
+       (matching-names? #'NAME1 #'NAME2)
+       (matching-local-exprs? #'ID1 #'ID2)
+       #'(recv?/proj NAME1 ID1)]
 
       [((begin/proj EXPR1 ...) (begin/proj EXPR2 ...))
        #`(begin/proj
@@ -53,21 +83,33 @@
                       [expr2 (syntax->list #'(EXPR2 ...))])
              (merge expr1 expr2)))]
 
+      [((expr-local/proj EXPR1) (expr-local/proj EXPR2))
+       (matching-local-exprs? #'EXPR1 #'EXPR2)
+       #'(expr-local/proj EXPR1)]
+
+      [((if/proj COND1 EXPR-TRUE1 EXPR-FALSE1)
+        (if/proj COND2 EXPR-TRUE2 EXPR-FALSE2))
+       (matching-local-exprs? #'COND1 #'COND2)
+       #`(if/proj COND1
+                  #,(merge #'EXPR-TRUE1 #'EXPR-TRUE2)
+                  #,(merge #'EXPR-FALSE1 #'EXPR-FALSE2))]
+
+      [((select!/proj NAME1 LABEL1) (select!/proj NAME2 LABEL2))
+       (matching-names? #'NAME1 #'NAME2)
+       (matching-labels? #'LABEL1 #'LABEL2)
+       #'(select!/proj NAME1 LABEL1)]
+
       [((branch?/proj NAME1 [LABEL1 EXPR1] ...)
         (branch?/proj NAME2 [LABEL2 EXPR2] ...))
-       (unless (eq? (syntax->datum #'NAME1) (syntax->datum #'NAME2))
-         (raise-syntax-error
-          #f
-          "Branches cannot merge due to mismatched process names!"
-          this-syntax))
+       (matching-names? #'NAME1 #'NAME2)
        (define label-hash1
          (make-immutable-hash
-          (for/list ([label1 (syntax->list #'(LABEL1 ...))]
+          (for/list ([label1 (map syntax->datum (syntax->list #'(LABEL1 ...)))]
                      [expr1 (syntax->list #'(EXPR1 ...))])
             (cons label1 expr1))))
        (define label-hash2
          (make-immutable-hash
-          (for/list ([label2 (syntax->list #'(LABEL2 ...))]
+          (for/list ([label2 (map syntax->datum (syntax->list #'(LABEL2 ...)))]
                      [expr2 (syntax->list #'(EXPR2 ...))])
             (cons label2 expr2))))
        (define label-union
@@ -89,9 +131,17 @@
                     #`[#,label #,merged-expr])
                   ;; The case where a label is in only one branch
                   (begin
-                    #`[#,label #,expr])))))]))
+                    #`[#,label #,expr])))))]
 
-  (define/hygienic (parse-expr stx) #:definition
+      [(EXPR1 EXPR2)
+       (raise-syntax-error
+        #f
+        "Could not merge!"
+        #f
+        #f
+        (list #'EXPR1 #'EXPR2))]))
+
+  (define (parse-expr stx)
     (syntax-parse stx #:literal-sets (proj-literals)
       [(send!/proj NAME GEN-EXPR)
        (valid-other-process? #'NAME this-syntax)
@@ -127,11 +177,12 @@
 
       [(branch?/proj NAME [LABEL EXPR] ...)
        (valid-other-process? #'NAME this-syntax)
-       #`(cond
-           #,@
-           (for/list ([label (syntax->list #'(LABEL ...))]
-                      [expr (syntax->list #'(EXPR ...))])
-             #`[(eq? (recv NAME 'void) #,label) #,(parse-expr expr)]))]))
+       #`(let ([recv-label (recv NAME 'void)])
+           (cond
+             #,@
+             (for/list ([label (syntax->list #'(LABEL ...))]
+                        [expr (syntax->list #'(EXPR ...))])
+               #`[(eq? recv-label #,label) #,(parse-expr expr)])))]))
 
   (define (parse-intctx-pass2 stx)
     #`(begin
