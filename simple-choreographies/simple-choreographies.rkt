@@ -13,14 +13,14 @@
  ;; Provide the interface macro for Choret
  define-chor
  ;; Provide the literals of Choret
- define-local expr-local com-> begin/chor define-syntax/chor
+ define-local expr-local com-> sel-> if/chor begin/chor define-syntax/chor
  (for-syntax
   (all-from-out racket/base)
   ;; Provide the struct representing a Choret macro.
   chor-macro))
 
 (define-literal-forms chor-literals "Cannot use a Choret literal in Racket!"
-  (define-local expr-local com-> begin/chor define-syntax/chor))
+  (define-local expr-local com-> sel-> if/chor begin/chor define-syntax/chor))
 
 (begin-for-syntax
 
@@ -62,6 +62,9 @@
 
   (struct chor-macro [transformer])
   (struct chor-process-variable [])
+
+  (define (eq-procs? proc1 proc2)
+    (free-identifier=? proc1 proc2))
 
   (define (valid-processes? . processes)
     (for/and ([proc processes])
@@ -116,6 +119,33 @@
                    #'(send!/proj reciever sender-local-expr)]
                   [#'reciever
                    #`(recv?/proj sender reciever-local-var)])]
+
+
+      [(if/chor (name cond-expr) true-expr false-expr)
+       #:when (valid-processes? #'name)
+       (cond
+        [(eq-procs? #'name process-name)
+         #`(if/proj cond-expr
+                    #,(project-chor-expr #'true-expr process-name)
+                    #,(project-chor-expr #'false-expr process-name))]
+        [else
+         #`(merge/proj
+            #,(project-chor-expr #'true-expr process-name)
+            #,(project-chor-expr #'false-expr process-name))])]
+
+
+      [(sel-> [sender label] [recievers ...] expr)
+       #:when (apply valid-processes? #'sender (syntax->list #'(recievers ...)))
+       (cond
+         [(eq-procs? #'sender process-name)
+          #`(begin/proj
+              #,@(for/list ([reciever (syntax->list #'(recievers ...))])
+                   #`(select!/proj #,reciever label))
+              #,(project-chor-expr #'expr process-name))]
+         [(for/or ([i (syntax->list #'(recievers ...))])
+            (eq-procs? i process-name))
+          #`(branch?/proj sender
+                          [label #,(project-chor-expr #'expr process-name)])])]
 
 
       [(begin/chor body ...)
