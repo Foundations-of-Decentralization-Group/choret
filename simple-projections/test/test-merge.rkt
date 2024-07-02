@@ -56,6 +56,70 @@
 ;;; test that certain errors are properly caught at compile time.
 
 (test-case
+ "Syntax error due to mismatched send!/proj local expression forms"
+ (check-has-syntax-error
+  (require "../simple-projections.rkt")
+  (simple-projections
+   (define-projection A
+     (define/proj x 0)
+     (recv?/proj B x))
+
+   (define-projection B
+     (merge/proj
+      (send!/proj A 1)
+      (send!/proj A 2))))))
+
+(test-case
+ "Syntax error due to mismatched send!/proj process names"
+ (check-has-syntax-error
+  (require "../simple-projections.rkt")
+  (simple-projections
+   (define-projection A
+     (define/proj x 0)
+     (recv?/proj C x))
+
+   (define-projection B
+     (define/proj x 0)
+     (recv?/proj C x))
+
+   (define-projection C
+     (merge/proj
+      (send!/proj A 1)
+      (send!/proj B 1))))))
+
+(test-case
+ "Syntax error due to mismatched recv?/proj identifiers"
+ (check-has-syntax-error
+  (require "../simple-projections.rkt")
+  (simple-projections
+   (define-projection A
+     (send!/proj B 5))
+
+   (define-projection B
+     (define/proj x 0)
+     (define/proj y 0)
+     (merge/proj
+      (recv?/proj A x)
+      (recv?/proj A y))))))
+
+(test-case
+ "Syntax error due to mismatched recv?/proj process names"
+ (check-has-syntax-error
+  (require "../simple-projections.rkt")
+  (simple-projections
+   (define-projection A
+     (send!/proj C 1))
+
+   (define-projection B
+     (send!/proj C 2))
+
+   (define-projection C
+     (define/proj x 0)
+     (merge/proj
+      (recv?/proj A x)
+      (recv?/proj B x))))))
+
+(test-case
  "Mismatched number of forms when merging two begin/chor forms"
  (check-has-syntax-error
   (require "../simple-projections.rkt")
