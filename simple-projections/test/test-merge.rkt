@@ -2,10 +2,7 @@
 
 (require
  rackunit
- "check-syntax.rkt"
- (for-syntax
-  rackunit
-  "../simple-projections.rkt"))
+ "../../util/check-syntax.rkt")
 
 ;;; Test cases where the code should be syntactically correct. The semantics of
 ;;; these programs are also tested.
@@ -13,6 +10,7 @@
 (test-case
  "No syntax errors when merging if/proj"
  (check-not-syntax-error
+  (require "../simple-projections.rkt" rackunit)
   (simple-projections
 
    (define-projection A
@@ -36,6 +34,7 @@
  (string-append
   "No syntax errors when merging branch?/proj")
  (check-not-syntax-error
+  (require "../simple-projections.rkt" rackunit)
   (simple-projections
 
    (define-projection A
@@ -46,11 +45,11 @@
      (define/proj x 0)
      (merge/proj
       (branch?/proj A
-       ['X (recv?/proj A x)]
-       ['Y (recv?/proj A x)])
+                    ['X (recv?/proj A x)]
+                    ['Y (recv?/proj A x)])
       (branch?/proj A
-       ['X (recv?/proj A x)]
-       ['Y (recv?/proj A x)]))
+                    ['X (recv?/proj A x)]
+                    ['Y (recv?/proj A x)]))
      (expr-local/proj (check-equal? x 10))))))
 
 ;;; Test cases where the code should not be syntactically correct. This is to
@@ -59,6 +58,7 @@
 (test-case
  "Syntax error due to mismatched names in nested merge"
  (check-has-syntax-error
+  (require "../simple-projections.rkt")
   (simple-projections
 
    (define-projection A
@@ -86,6 +86,7 @@
 (test-case
  "Syntax error due to mismatched local expression in if/proj"
  (check-has-syntax-error
+  (require "../simple-projections.rkt")
   (simple-projections
 
    (define-projection A
@@ -108,6 +109,7 @@
 (test-case
  "Synax error due to mismatched expression in if/proj"
  (check-has-syntax-error
+  (require "../simple-projections.rkt")
   (simple-projections
 
    (define-projection A
@@ -132,6 +134,7 @@
   "Syntax error due to merging branch/proj expressions with conflicting "
   "expressions for the same label")
  (check-has-syntax-error
+  (require "../simple-projections.rkt")
   (simple-projections
 
    (define-projection A
@@ -143,8 +146,8 @@
      (define/proj y 0)
      (merge/proj
       (branch?/proj A
-       ['X (recv?/proj A x)]
-       ['Y (recv?/proj A x)])
+                    ['X (recv?/proj A x)]
+                    ['Y (recv?/proj A x)])
       (branch?/proj A
-       ['X (recv?/proj A y)]
-       ['Y (recv?/proj A x)]))))))
+                    ['X (recv?/proj A y)]
+                    ['Y (recv?/proj A x)]))))))
