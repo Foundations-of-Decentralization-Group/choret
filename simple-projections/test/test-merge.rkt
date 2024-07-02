@@ -56,6 +56,21 @@
 ;;; test that certain errors are properly caught at compile time.
 
 (test-case
+ "Mismatched number of forms when merging two begin/chor forms"
+ (check-has-syntax-error
+  (require "../simple-projections.rkt")
+  (simple-projections
+   (define-projection A
+     (define/proj x 0)
+
+     (merge/proj
+      (begin/proj
+        (expr-local/proj (set! x (+ x 1))))
+      (begin/proj
+        (expr-local/proj (set! x (+ x 1)))
+        (expr-local/proj (set! x (+ x 1)))))))))
+
+(test-case
  "Syntax error due to mismatched names in nested merge"
  (check-has-syntax-error
   (require "../simple-projections.rkt")

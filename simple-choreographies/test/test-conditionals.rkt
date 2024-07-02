@@ -55,3 +55,20 @@
                       (com-> [B 4] [A z]))))))
 
     (expr-local A (check-equal? z 2)))))
+
+
+(test-case
+ "Mismatched number of forms in if/chor form"
+ (check-has-syntax-error
+  (require "../simple-choreographies.rkt" rackunit)
+  (define-chor [A B]
+    (define-local A x 0)
+    (define-local B y 0)
+
+    (if/chor
+     [A (eq? x 1)]
+     (begin/chor
+       (com-> [A 1] [B y]))
+     (begin/chor
+       (com-> [A 2] [B y])
+       (com-> [A 3] [B y]))))))

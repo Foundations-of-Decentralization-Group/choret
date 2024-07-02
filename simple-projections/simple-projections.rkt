@@ -4,7 +4,7 @@
  ee-lib/define
  (except-in "../simple-networks/simple-networks.rkt" #%module-begin)
  (for-syntax
-  racket/base racket/hash ee-lib syntax/parse))
+  racket/base racket/list racket/hash ee-lib syntax/parse))
 
 (provide
  (all-from-out racket/base)
@@ -77,10 +77,17 @@
        #'(recv?/proj NAME1 ID1)]
 
       [((begin/proj EXPR1 ...) (begin/proj EXPR2 ...))
+       (define expr1-list (syntax->list #'(EXPR1 ...)))
+       (define expr2-list (syntax->list #'(EXPR2 ...)))
+       (let ([expr1-len (length expr1-list)] [expr2-len (length expr2-list)])
+         (unless (equal? expr1-len expr2-len)
+           (raise-syntax-error
+            #f
+            "Cannot merge begin/chor forms with different ammounts of subforms!"
+            (if (> expr1-len expr2-len) (last expr1-list) (last expr2-list)))))
        #`(begin/proj
            #,@
-           (for/list ([expr1 (syntax->list #'(EXPR1 ...))]
-                      [expr2 (syntax->list #'(EXPR2 ...))])
+           (for/list ([expr1 expr1-list] [expr2 expr2-list])
              (merge expr1 expr2)))]
 
       [((expr-local/proj EXPR1) (expr-local/proj EXPR2))
