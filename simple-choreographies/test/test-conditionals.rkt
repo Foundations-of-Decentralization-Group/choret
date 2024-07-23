@@ -58,6 +58,44 @@
 
 
 (test-case
+ "Code after selction form"
+ (check-not-syntax-error
+  (require "../simple-choreographies.rkt" rackunit)
+  (define-chor [A B]
+    (define-local A r 0)
+    (define-local A s 0)
+    (define-local A t 0)
+    (define-local A x 1)
+    (define-local B y 0)
+    (define-local B z 0)
+
+    (if/chor
+     (A (eq? x 1))
+     (begin/chor
+       (sel-> [A 'OK] [B]
+              (begin/chor
+                (com-> [A 1] [B y])
+                (com-> [B 3] [A r])))
+       (com-> [B 5] [A s])
+       (com-> [A (+ 10 2)] [B z]))
+     (begin/chor
+       (sel-> [A 'KO] [B]
+              (begin/chor
+                (com-> [A 2] [B y])
+                (com-> [B 4] [A r])))
+       (com-> [B 5] [A t])
+       (com-> [A (- 20 4)] [B z])))
+
+    (expr-local A (begin
+                    (check-equal? r 3)
+                    (check-equal? s 5)
+                    (check-equal? t 0)))
+    (expr-local B (begin
+                    (check-equal? y 1)
+                    (check-equal? z 12))))))
+
+
+(test-case
  "Mismatched number of forms in if/chor form"
  (check-has-syntax-error
   (require "../simple-choreographies.rkt" rackunit)
