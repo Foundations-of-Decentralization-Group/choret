@@ -24,42 +24,6 @@
 
 (begin-for-syntax
 
-  ;; A "macro-macro" meant to be used in the "project-chor-expr" syntax
-  ;; function.
-  ;;
-  ;; [cond-proc] has the following form:
-  ;; (cond-proc PROCESS-NAME CASES ...)
-  ;;
-  ;; PROCESS-NAME must be a variable containing syntax object; this syntax oject
-  ;; should simply conain a symbol datum representing the name of the process to
-  ;; project onto.
-  ;;
-  ;; CASES describes what to do for a given match against the process name;
-  ;; it has the following form:
-  ;; (CASE-NAME CASE-EXPR)
-  ;;
-  ;; CASE-NAME must be a variable containing syntax object; this syntax oject
-  ;; should simply conain a symbol datum representing the name of the process to
-  ;; match against PROCESS-NAME.
-  ;;
-  ;; CASE-EXPR is the expression to evaluate if CASE-NAME and PROCESS-NAME
-  ;; have equal symbol datums.
-  ;;
-  ;; In the event that none of the CASE-NAMEs match PROCESS-NAME, then #f is
-  ;; returned.
-  (define-syntax (cond-proc stx)
-    (syntax-case stx ()
-      [(cond-proc proc-name cases ...)
-       #`(let ([process-name (syntax->datum proc-name)])
-           (cond
-             #,@(map
-                 (lambda (case-expr)
-                   (with-syntax ([(case-name case-body) case-expr])
-                     #`[(free-identifier=? case-name proc-name)
-                        case-body]))
-                 (syntax->list #'(cases ...)))
-             [else #f]))]))
-
   (struct chor-macro [transformer])
   (struct chor-process-variable [])
 
@@ -100,25 +64,26 @@
     (syntax-parse stx #:literal-sets (chor-literals)
       [(define-local local-proc id local-expression)
        #:when (valid-processes? #'local-proc)
-       (cond-proc process-name
-                  [#'local-proc
-                   #'(define/proj id local-expression)])]
+       (if (eq-procs? #'local-proc process-name)
+           #'(define/proj id local-expression)
+           #f)]
 
 
       [(expr-local local-proc local-proc-exprs ...)
        #:when (valid-processes? #'local-proc)
-       (cond-proc process-name
-                  [#'local-proc
-                   #'(expr-local/proj local-proc-exprs ...)])]
+       (if (eq-procs? #'local-proc process-name)
+           #'(expr-local/proj local-proc-exprs ...)
+           #f)]
 
 
       [(com-> [sender sender-local-expr] [reciever reciever-local-var])
        #:when (valid-processes? #'sender #'reciever)
-       (cond-proc process-name
-                  [#'sender
-                   #'(send!/proj reciever sender-local-expr)]
-                  [#'reciever
-                   #`(recv?/proj sender reciever-local-var)])]
+       (cond
+         [(eq-procs? #'sender process-name)
+          #'(send!/proj reciever sender-local-expr)]
+         [(eq-procs? #'reciever process-name)
+          #`(recv?/proj sender reciever-local-var)]
+         [else #f])]
 
 
       [(if/chor (name cond-expr) true-expr false-expr)
