@@ -17,6 +17,7 @@
 
 (provide chor at ~> sel~>
          (rename-out [if/chor if]
+                     [let/chor let]
                      [define/chor define]))
 
 (begin-for-syntax
@@ -65,6 +66,20 @@
      (if (cur-process? #'PROC)
          #'LEXPR
          #'(void))]))
+
+(define-syntax (let/chor stx)
+  (syntax-parse stx
+    [(_ ([AT-EXPR VAL-GEXPR] ...) GBODY ...)
+     (let ([bindings
+            (filter
+             (lambda (x) x)
+             (for/list ([at-expr (syntax->list #'(AT-EXPR ...))]
+                        [val-expr (syntax->list #'(VAL-GEXPR ...))])
+               (parse-at PROC LEXPR at-expr
+                         (if (cur-process? #'PROC)
+                             #`[LEXPR #,val-expr]
+                             #f))))])
+       #`(let #,bindings GBODY ...))]))
 
 (define-syntax (define/chor stx)
   (syntax-parse stx

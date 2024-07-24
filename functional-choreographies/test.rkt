@@ -77,3 +77,43 @@
                   (sel~> l1 [l2 'test2 (at l2 2)])
                   (sel~> l1 [l2 'test3 (at l2 3)]))))
         (at l2 (println res)))))
+
+(test-case
+ "let with multiple bindings"
+ (check-not-syntax-error
+  (require "functional-choreographies.rkt")
+  (chor (l1 l2 l3)
+        (define (at l3 x) 0)
+        (define (at l3 y) 0)
+        (let ([(at l1 x) 10]
+              [(at l2 y) 15])
+          (~> (at l1 x) (at l3 x))
+          (~> (at l2 y) (at l3 y)))
+        (at l3 (println (+ x y))))))
+
+(test-case
+ "Nested let forms"
+ (check-not-syntax-error
+  (require "functional-choreographies.rkt")
+  (chor (l1 l2 l3)
+        (define (at l3 x) 0)
+        (define (at l3 y) 0)
+        (let ([(at l1 x) 10])
+          (~> (at l1 x) (at l3 x))
+          (let ([(at l2 y) 15])
+            (~> (at l2 y) (at l3 y))))
+        (at l3 (println (+ x y))))))
+
+(test-case
+ "Reference let binding out of scope"
+ (check-has-syntax-error
+  (require "functional-choreographies.rkt")
+  (chor (l1 l2 l3)
+        (define (at l3 x) 0)
+        (define (at l3 y) 0)
+        (let ([(at l1 x) 10])
+          (~> (at l1 x) (at l3 x))
+          (let ([(at l2 y) 15])
+            (~> (at l2 y) (at l3 y))))
+        (at l1 (println x))
+        (at l3 (println (+ x y))))))
