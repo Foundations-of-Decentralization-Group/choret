@@ -21,7 +21,6 @@
                      [define/chor define]))
 
 (begin-for-syntax
-  (define cur-context (make-parameter #f))
 
   (define (cur-process? proc)
     (free-identifier=? (syntax-parameter-value #'cur-process) proc))
@@ -37,21 +36,7 @@
 
   (define (local-expand-expr stx)
     (let-values ([(expanded-stx) (local-expand stx 'expression '())])
-      expanded-stx))
-
-  (define-syntax-rule (no-op)
-    (lambda () (void)))
-
-  (define-syntax (parse-at stx)
-    (syntax-parse stx
-      [(_ PROC LEXPR STX EXPR ...)
-       #'(syntax-parse STX #:literals (at)
-           [(at PROC LEXPR)
-            EXPR ...]
-           [_ (raise-syntax-error
-               #f
-               "Expected located expression!"
-               STX)])])))
+      expanded-stx)))
 
 (define-syntax-parameter cur-process
   (lambda (stx)
@@ -75,40 +60,37 @@
              (lambda (x) x)
              (for/list ([at-expr (syntax->list #'(AT-EXPR ...))]
                         [val-expr (syntax->list #'(VAL-GEXPR ...))])
-               (parse-at PROC LEXPR at-expr
-                         (if (cur-process? #'PROC)
-                             #`[LEXPR #,val-expr]
-                             #f))))])
+               (syntax-parse at-expr #:literals (at)
+                 [(at PROC LEXPR)
+                  (if (cur-process? #'PROC)
+                      #`[LEXPR #,val-expr]
+                      #f)]
+                 [_ (raise-syntax-error
+                     #f "Expected located expression!" at-expr)])))])
        #`(let #,bindings GBODY ...))]))
 
 (define-syntax (define/chor stx)
-  (syntax-parse stx
-    [(_ DEF-GEXPR BODY-GEXPR ...)
-     (parse-at PROC LEXPR #'DEF-GEXPR
-              (if (cur-process? #'PROC)
-                  #'(define LEXPR BODY-GEXPR ...)
-                  #'(let () BODY-GEXPR ...)))]))
+  (syntax-parse stx #:literals (at)
+    [(_ (at PROC LEXPR) BODY-GEXPR ...)
+     (if (cur-process? #'PROC)
+         #'(define LEXPR BODY-GEXPR ...)
+         #'(let () BODY-GEXPR ...))]))
 
 (define-syntax (if/chor stx)
-  (syntax-parse stx
-    [(_ COND-GEXPR TRUE-GEXPR FALSE-GEXPR)
-     (parse-at PROC LEXPR #'COND-GEXPR
-              (if (cur-process? #'PROC)
-                  #'(if COND-GEXPR TRUE-GEXPR FALSE-GEXPR)
-                  #'(merge TRUE-GEXPR FALSE-GEXPR)))]))
+  (syntax-parse stx #:literals (at)
+    [(_ (at PROC LEXPR) TRUE-GEXPR FALSE-GEXPR)
+     (if (cur-process? #'PROC)
+         #'(if LEXPR TRUE-GEXPR FALSE-GEXPR)
+         #'(merge TRUE-GEXPR FALSE-GEXPR))]))
 
 (define-syntax (~> stx)
-  (syntax-parse stx
-    [(_ SEND-GEXPR RECV-GEXPR)
-     (parse-at
-      SEND-PROC SEND-LEXPR #'SEND-GEXPR
-      (parse-at
-       RECV-PROC RECV-ID #'RECV-GEXPR
-       (cond [(cur-process? #'SEND-PROC)
-              #`(send #,(fmt-net-proc #'RECV-PROC) 'void SEND-LEXPR)]
-             [(cur-process? #'RECV-PROC)
-              #`(set! RECV-ID (recv #,(fmt-net-proc #'SEND-PROC) 'void))]
-             [else #'(void)])))]))
+  (syntax-parse stx #:literals (at)
+    [(_ (at SEND-PROC SEND-LEXPR) (at RECV-PROC RECV-ID))
+     (cond [(cur-process? #'SEND-PROC)
+            #`(send #,(fmt-net-proc #'RECV-PROC) 'void SEND-LEXPR)]
+           [(cur-process? #'RECV-PROC)
+            #`(set! RECV-ID (recv #,(fmt-net-proc #'SEND-PROC) 'void))]
+           [else #'(void)])]))
 
 (define-syntax (sel~> stx)
   (syntax-parse stx
@@ -285,14 +267,13 @@
 (define-syntax (chor stx)
   (syntax-parse stx
     [(_ (PROC ...) GEXPR ...)
-     (parameterize ([cur-context (syntax-local-make-definition-context)])
-       (let* ([GEXPRS^
-               (for/list ([proc (syntax->list #'(PROC ...))])
-                 #`(syntax-parameterize ([cur-process #'#,proc])
-                     (define-process
-                       #,(fmt-net-proc proc)
-                       (expand-process (block GEXPR ...)))
-                     #f))])
-         #`(define-network
-             #,@GEXPRS^)))]))
+     (let* ([GEXPRS^
+             (for/list ([proc (syntax->list #'(PROC ...))])
+               #`(syntax-parameterize ([cur-process #'#,proc])
+                   (define-process
+                     #,(fmt-net-proc proc)
+                     (expand-process (block GEXPR ...)))
+                   #f))])
+       #`(define-network
+           #,@GEXPRS^))]))
 
