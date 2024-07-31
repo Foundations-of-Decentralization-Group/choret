@@ -117,3 +117,53 @@
             (~> (at l2 y) (at l3 y))))
         (at l1 (println x))
         (at l3 (println (+ x y))))))
+
+(test-case
+ "Simple choreographic function"
+ (check-not-syntax-error
+  (require "functional-choreographies.rkt" rackunit)
+  (chor (l1 l2)
+        (define F
+          (lambda (X)
+            (let ([(at l1 x) X])
+              (let ([(at l2 x) (~> (at l1 x) (at l2))])
+                (at l2 (+ x 10))))))
+
+        (let ([(at l2 result)
+               (F (at l1 10))])
+          (at l2 (at l2 (println result)))
+          (at l2 (check-equal? result 20))))))
+
+(test-case
+ "Passing a chor function to a chor function"
+ (check-not-syntax-error
+  (require "functional-choreographies.rkt" rackunit)
+  (chor (l1 l2)
+        (define F
+          (lambda (F2)
+            (F2 (at l2 10) (at l1 20))))
+
+        (define add-10
+          (lambda (X (at l1 y))
+            (let ([(at l2 y) (~> (at l1 y) (at l2))])
+              (at l2 (+ X y)))))
+
+        (let ([(at l2 result) (F add-10)])
+          (at l2 (check-equal? result 30))))))
+
+(test-case
+ "Merging with choreographic functions"
+ (check-not-syntax-error
+  (require "functional-choreographies.rkt" rackunit)
+  (chor (l1 l2)
+        (if (at l1 #t)
+            (let ([(at l2 x) (at l2 5)])
+              (define F
+                (lambda (X)
+                  (unless (void? X) (println X))))
+              (F (at l2 x)))
+            (let ([(at l2 x) (at l2 5)])
+              (define F
+                (lambda (X)
+                  (unless (void? X) (println X))))
+              (F (at l2 x)))))))
