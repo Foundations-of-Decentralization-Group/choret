@@ -106,11 +106,6 @@
                      (format-id #'LEXPR "UNUSED-located-at-~a" #'PROC))]
                 [ARG #'ARG]))])
        #`(lambda #,args
-           #,@(let* ([process-list (process-list)]
-                     [first (car process-list)]
-                     [rest (cdr process-list)])
-                (for/list ([proc rest])
-                  #`(~> (at #,first 'sync) (at #,proc))))
            GBODY ...))]))
 
 (define-syntax (if/chor stx)
