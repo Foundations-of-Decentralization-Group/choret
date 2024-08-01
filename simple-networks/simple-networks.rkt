@@ -8,7 +8,6 @@
 (provide define-network define-process send recv)
 (provide #%app #%datum #%top-interaction #%top)
 
-(struct process-data (name thread) #:prefab)
 (begin-for-syntax
   (define channel-count 0)
   (define channels (make-hash)))
@@ -25,7 +24,7 @@
 
 ;; Keeps track of the name of the current process introduced by the
 ;; "define-process" macro.
-(define-syntax-parameter current-process-name-stxparam
+(define-syntax-parameter cur-process
   (lambda (stx)
     (raise-syntax-error
      #f
@@ -37,7 +36,7 @@
 ;; vector which indexes the list of channels which processes use to
 ;; communicate with each other. Each index corresponds to a unique process
 ;; pair.
-(define-syntax-parameter current-process-channel-vector-stxparam
+(define-syntax-parameter cur-process-channel-vector
   (lambda (stx)
     (raise-syntax-error
      #f
@@ -71,14 +70,12 @@
          ;; current-process.
          ([channel-index
            (find-or-create-channel-index
-            ((syntax-parameter-value #'current-process-name-stxparam) #f)
+            (syntax-parameter-value #'cur-process)
             (syntax->datum #'target-process))]
           ;; Get the channel vector for this process to look up the channel for
           ;; the given channel-index.
           [channel-vector
-           ((syntax-parameter-value
-             #'current-process-channel-vector-stxparam)
-            #f)])
+           (syntax-parameter-value #'cur-process-channel-vector)])
        #'(begin
            (printf "recv on index ~a\n" channel-index)
            (channel-get (vector-ref channel-vector channel-index))))]))
@@ -91,14 +88,12 @@
          ;; current-process.
          ([channel-index
            (find-or-create-channel-index
-            ((syntax-parameter-value #'current-process-name-stxparam) #f)
+            (syntax-parameter-value #'cur-process)
             (syntax->datum #'target-process))]
           ;; Get the channel vector for this process to look up the channel for
           ;; the given channel-index.
           [channel-vector
-           ((syntax-parameter-value
-             #'current-process-channel-vector-stxparam)
-            #f)])
+           (syntax-parameter-value #'cur-process-channel-vector)])
        #'(begin
            (printf "send on index ~a\n" channel-index)
            (channel-put (vector-ref channel-vector channel-index) data)))]))
@@ -114,19 +109,15 @@
            ;; add it to the list of initialization channels (init-channels).
            (define init-channel (make-channel))
            (set! init-channels (cons init-channel init-channels))
-           (define process-name
-             (process-data
-              'process-name
-              (thread (lambda ()
-                        (begin
-                          (define channel-vector (channel-get init-channel))
-                          (syntax-parameterize
-                              ([current-process-name-stxparam
-                                (lambda (stx) 'process-name)]
-                               [current-process-channel-vector-stxparam
-                                (lambda (stx) #'channel-vector)])
-                            process-stx ...)
-                          (channel-put init-channel 'process-name))))))))]))
+           (thread (lambda ()
+                     (define channel-vector (channel-get init-channel))
+                     (syntax-parameterize
+                         ([cur-process
+                           'process-name]
+                          [cur-process-channel-vector
+                           #'channel-vector])
+                       process-stx ...)
+                     (channel-put init-channel 'process-name)))))]))
 
 (define-syntax (define-network stx)
   (syntax-case stx ()
