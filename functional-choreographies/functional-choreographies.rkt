@@ -19,6 +19,7 @@
          (rename-out [if/chor if]
                      [let/chor let]
                      [define/chor define]
+                     [set!/chor set!]
                      [lambda/chor lambda]))
 
 (begin-for-syntax
@@ -94,6 +95,15 @@
     [(_ ID GEXPR)
      #'(define ID GEXPR)]))
 
+(define-syntax (set!/chor stx)
+  (syntax-parse stx #:literals (at)
+    [(_ (at PROC LEXPR) GEXPR)
+     (if (cur-process? #'PROC)
+         #'(set! LEXPR GEXPR)
+         #'(let () GEXPR))]
+    [(_ ID GEXPR)
+     #'(set! ID GEXPR)]))
+
 (define-syntax (lambda/chor stx)
   (syntax-parse stx
     [(_ (GARG ...) GBODY ...)
@@ -119,13 +129,11 @@
 
 (define-syntax (~> stx)
   (syntax-parse stx #:literals (at)
-    [(_ (at SEND-PROC SEND-LEXPR) (at RECV-PROC (~optional RECV-ID)))
+    [(_ (at SEND-PROC SEND-LEXPR) RECV-PROC)
      (cond [(cur-process? #'SEND-PROC)
             #`(send #,(fmt-net-proc #'RECV-PROC) 'void SEND-LEXPR)]
            [(cur-process? #'RECV-PROC)
-            (if (attribute RECV-ID)
-                #`(set! RECV-ID (recv #,(fmt-net-proc #'SEND-PROC) 'void))
-                #`(recv #,(fmt-net-proc #'SEND-PROC) 'void))]
+            #`(recv #,(fmt-net-proc #'SEND-PROC) 'void)]
            [else #'(void)])]))
 
 (define-syntax (sel~> stx)

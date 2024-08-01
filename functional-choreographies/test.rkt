@@ -12,7 +12,7 @@
         (define (at l1 x) 0)
         (define (at l2 x) 0)
         (at l1 0)
-        (~> (at l1 10) (at l2 x))
+        (set! (at l2 x) (~> (at l1 10) l2))
         (at l2 (println x))
         (at l1 (println x)))))
 
@@ -23,8 +23,8 @@
   (chor (l1 l2)
         (define (at l2 x) 0)
         (if (at l1 #f)
-            (~> (at l1 10) (at l2 x))
-            (~> (at l1 15) (at l2 x)))
+            (set! (at l2 x) (~> (at l1 10) l2))
+            (set! (at l2 x) (~> (at l1 15) l2)))
         (at l2 (println x)))))
 
 (test-case
@@ -35,8 +35,8 @@
         (define (at l2 x) 0)
         (define (at l2 y) 0)
         (if (at l1 #f)
-            (sel~> l1 [l2 'x (~> (at l1 10) (at l2 x))])
-            (sel~> l1 [l2 'y (~> (at l1 10) (at l2 y))]))
+            (sel~> l1 [l2 'x (set! (at l2 x) (~> (at l1 10) l2))])
+            (sel~> l1 [l2 'y (set! (at l2 y) (~> (at l1 10) l2))]))
         (at l2 (check-equal? x 0))
         (at l2 (check-equal? y 10)))))
 
@@ -87,8 +87,8 @@
         (define (at l3 y) 0)
         (let ([(at l1 x) 10]
               [(at l2 y) 15])
-          (~> (at l1 x) (at l3 x))
-          (~> (at l2 y) (at l3 y)))
+          (set! (at l3 x) (~> (at l1 x) l3))
+          (set! (at l3 y) (~> (at l2 y) l3)))
         (at l3 (println (+ x y))))))
 
 (test-case
@@ -99,9 +99,9 @@
         (define (at l3 x) 0)
         (define (at l3 y) 0)
         (let ([(at l1 x) 10])
-          (~> (at l1 x) (at l3 x))
+          (set! (at l3 x) (~> (at l1 x) l3))
           (let ([(at l2 y) 15])
-            (~> (at l2 y) (at l3 y))))
+            (set! (at l3 y) (~> (at l2 y) l3))))
         (at l3 (println (+ x y))))))
 
 (test-case
@@ -112,9 +112,9 @@
         (define (at l3 x) 0)
         (define (at l3 y) 0)
         (let ([(at l1 x) 10])
-          (~> (at l1 x) (at l3 x))
+          (set! (at l3 x) (~> (at l1 x) l3))
           (let ([(at l2 y) 15])
-            (~> (at l2 y) (at l3 y))))
+            (set! (at l3 y) (~> (at l2 y) l3))))
         (at l1 (println x))
         (at l3 (println (+ x y))))))
 
@@ -126,7 +126,7 @@
         (define F
           (lambda (X)
             (let ([(at l1 x) X])
-              (let ([(at l2 x) (~> (at l1 x) (at l2))])
+              (let ([(at l2 x) (~> (at l1 x) l2)])
                 (at l2 (+ x 10))))))
 
         (let ([(at l2 result)
@@ -145,7 +145,7 @@
 
         (define add-10
           (lambda (X (at l1 y))
-            (let ([(at l2 y) (~> (at l1 y) (at l2))])
+            (let ([(at l2 y) (~> (at l1 y) l2)])
               (at l2 (+ X y)))))
 
         (let ([(at l2 result) (F add-10)])
