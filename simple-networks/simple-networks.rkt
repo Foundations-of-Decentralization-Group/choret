@@ -147,10 +147,3 @@
              ;; Wait for each process to finish
              (for ([init-channel init-channels])
                (channel-get init-channel)))))]))
-
-(define-syntax (simple-networks-module-begin stx)
-  (syntax-case stx ()
-    [(simple-networks-module-begin body ...)
-       #'(#%module-begin body ...)]))
-
-(provide (rename-out [simple-networks-module-begin #%module-begin]))

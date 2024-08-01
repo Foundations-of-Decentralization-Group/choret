@@ -1,7 +1,7 @@
 #lang racket/base
 
 (require
- (except-in "../simple-networks/simple-networks.rkt" #%module-begin)
+ "../simple-networks/simple-networks.rkt"
  racket/stxparam
  racket/block
  (for-syntax

@@ -2,7 +2,7 @@
 
 (require
  ee-lib/define
- (except-in "../simple-networks/simple-networks.rkt" #%module-begin)
+ "../simple-networks/simple-networks.rkt"
  (for-syntax
   racket/base racket/list racket/hash ee-lib syntax/parse))
 

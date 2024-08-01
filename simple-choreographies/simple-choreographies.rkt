@@ -2,7 +2,7 @@
 
 (require
  racket/base ee-lib/define
- (except-in "../simple-projections/simple-projections.rkt" #%module-begin)
+ "../simple-projections/simple-projections.rkt"
  (for-syntax
   racket/base ee-lib syntax/parse
   (for-syntax
