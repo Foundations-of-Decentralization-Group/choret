@@ -167,3 +167,30 @@
                 (lambda (X)
                   (unless (void? X) (println X))))
               (F (at l2 x)))))))
+
+(test-case
+ "Context based expansion of Choret macros"
+ (check-not-syntax-error
+  (require "functional-choreographies.rkt" rackunit)
+  (define regular-func (lambda (x y) (+ x y)))
+  (chor (l1 l2)
+        (define (at l1 x) (at l1 10))
+        (define chor-func
+          (lambda (X) (at l1 (regular-func X x))))
+        (let ([(at l1 result) (chor-func (at l1 10))])
+          (at l1 (check-equal? result 20))))))
+
+(test-case
+ "Context based expansion of Choret macros, 2"
+ (check-has-syntax-error
+  (at l1 10)
+  (chor (l1 l2)
+        (at l1 (println 0)))))
+
+(test-case
+ "Context based expansion of Choret macros, 3"
+ (check-has-syntax-error
+  (let ([(at l1 x) (at l1 10)])
+    (void))
+  (chor (l1 l2)
+        (at l1 (println x)))))

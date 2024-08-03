@@ -1,26 +1,19 @@
 #lang racket/base
 
 (require
+ "define-chor-syntax.rkt"
  "../simple-networks/simple-networks.rkt"
  racket/stxparam
  racket/block
  (for-syntax
   racket/base
   racket/syntax
-  racket/match
   racket/hash
   syntax/parse
-  syntax/stx
   (for-syntax
-   racket/base
-   syntax/parse)))
+   racket/base)))
 
-(provide chor at ~> sel~>
-         (rename-out [if/chor if]
-                     [let/chor let]
-                     [define/chor define]
-                     [set!/chor set!]
-                     [lambda/chor lambda]))
+(provide chor)
 
 (begin-for-syntax
 
@@ -62,14 +55,14 @@
      "Use of `process-list` outside of a projection!"
      stx)))
 
-(define-syntax (at stx)
+(define/provide-chor-syntax (at stx)
   (syntax-parse stx
     [(_ PROC LEXPR)
      (if (cur-process? #'PROC)
          #'LEXPR
          #'(void))]))
 
-(define-syntax (let/chor stx)
+(define/provide-chor-syntax (let/chor stx) #:override let
   (syntax-parse stx
     [(_ ([AT-EXPR VAL-GEXPR] ...) GBODY ...)
      (let ([bindings
@@ -86,7 +79,7 @@
                      #f "Expected located expression!" at-expr)])))])
        #`(let #,bindings GBODY ...))]))
 
-(define-syntax (define/chor stx)
+(define/provide-chor-syntax (define/chor stx) #:override define
   (syntax-parse stx #:literals (at)
     [(_ (at PROC LEXPR) BODY-GEXPR ...)
      (if (cur-process? #'PROC)
@@ -95,7 +88,7 @@
     [(_ ID GEXPR)
      #'(define ID GEXPR)]))
 
-(define-syntax (set!/chor stx)
+(define/provide-chor-syntax (set!/chor stx) #:override set!
   (syntax-parse stx #:literals (at)
     [(_ (at PROC LEXPR) GEXPR)
      (if (cur-process? #'PROC)
@@ -104,7 +97,7 @@
     [(_ ID GEXPR)
      #'(set! ID GEXPR)]))
 
-(define-syntax (lambda/chor stx)
+(define/provide-chor-syntax (lambda/chor stx) #:override lambda
   (syntax-parse stx
     [(_ (GARG ...) GBODY ...)
      (let ([args
@@ -118,7 +111,7 @@
        #`(lambda #,args
            GBODY ...))]))
 
-(define-syntax (if/chor stx)
+(define/provide-chor-syntax (if/chor stx) #:override if
   (syntax-parse stx #:literals (at)
     [(_ (at PROC LEXPR) TRUE-GEXPR FALSE-GEXPR)
      (if (cur-process? #'PROC)
@@ -127,7 +120,7 @@
     [(_ REST ...)
      #'(if REST ...)]))
 
-(define-syntax (~> stx)
+(define/provide-chor-syntax (~> stx)
   (syntax-parse stx #:literals (at)
     [(_ (at SEND-PROC SEND-LEXPR) RECV-PROC)
      (cond [(cur-process? #'SEND-PROC)
@@ -136,7 +129,7 @@
             #`(recv #,(fmt-net-proc #'SEND-PROC) 'void)]
            [else #'(void)])]))
 
-(define-syntax (sel~> stx)
+(define/provide-chor-syntax (sel~> stx)
   (syntax-parse stx
     [(_ SEND-PROC [RECV-PROC LABEL GEXPR] ...)
      (if (cur-process? #'SEND-PROC)
@@ -316,7 +309,10 @@
                #`(syntax-parameterize ([cur-process #'#,proc])
                    (define-process
                      #,(fmt-net-proc proc)
-                     (expand-process (block GEXPR ...)))
+                     (expand-process
+                      (block
+                       (syntax-parameterize ([in-global-expr #t])
+                         GEXPR ...))))
                    #f))])
        #`(define-network
            (syntax-parameterize ([process-list #'(PROC ...)])
