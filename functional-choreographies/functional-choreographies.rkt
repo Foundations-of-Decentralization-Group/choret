@@ -31,28 +31,13 @@
 
   (define (local-expand-expr stx)
     (let-values ([(expanded-stx) (local-expand stx 'expression '())])
-      expanded-stx))
-
-  (define (other-processes)
-    (filter
-     (compose not cur-process?)
-     (syntax->list (syntax-parameter-value #'process-list))))
-
-  (define (process-list)
-    (syntax->list (syntax-parameter-value #'process-list))))
+      expanded-stx)))
 
 (define-syntax-parameter cur-process
   (lambda (stx)
     (raise-syntax-error
      #f
      "Use of `cur-process` outside of a projection!"
-     stx)))
-
-(define-syntax-parameter process-list
-  (lambda (stx)
-    (raise-syntax-error
-     #f
-     "Use of `process-list` outside of a projection!"
      stx)))
 
 (define/provide-chor-syntax (at stx)
@@ -116,7 +101,7 @@
     [(_ (at PROC LEXPR) TRUE-GEXPR FALSE-GEXPR)
      (if (cur-process? #'PROC)
          #'(if LEXPR TRUE-GEXPR FALSE-GEXPR)
-         #'(merge TRUE-GEXPR FALSE-GEXPR))]
+         (merge #'TRUE-GEXPR #'FALSE-GEXPR))]
     [(_ REST ...)
      #'(if REST ...)]))
 
@@ -198,10 +183,7 @@
                   (let* ([expr1 (car expr)]
                          [expr2 (cdr expr)])
                     #`[#,label
-                       #,(local-expand
-                          #`(merge #,expr1 #,expr2)
-                          'expression
-                          '())])
+                       #,(merge expr1 expr2)])
                   ;; The case where a label is in only one branch
                   (begin
                     #`[#,label #,expr])))))
@@ -232,24 +214,15 @@
              (syntax-property left-stx 'branch)
              (syntax-property left-stx 'branch))
      (merge-branches #'(branch? L-REST ...) #'(branch? R-REST ...))]
-    [((L1 L2 LR ...) (R1 R2 RR ...))
-     (let ([l-list (syntax->list #'(L1 L2 LR ...))]
-           [r-list (syntax->list #'(R1 R2 RR ...))])
+    [((L ...) (R ...))
+     (let ([l-list (syntax->list #'(L ...))]
+           [r-list (syntax->list #'(R ...))])
        (if (equal? (length l-list) (length r-list))
            #`(#,@(map match-stx l-list r-list))
            (raise-syntax-error
             #f
             "Cannot merge mismatched number of expressions!"
-            left-stx
-            right-stx)))]
-    [((L) (R))
-     (if (equal? (syntax->datum #'L) (syntax->datum #'R))
-         #'(L)
-         (raise-syntax-error
-          #f
-          "Cannot merge mismatched expression lists."
-          #'L
-          #'R))]
+            left-stx)))]
     [(L R)
      (if (equal? (syntax->datum #'L) (syntax->datum #'R))
          #'L
@@ -258,23 +231,10 @@
           "Cannot merge mismatched expressions."
           left-stx))]))
 
-(define-syntax (merge stx)
-  (syntax-parse stx
-    [(_ LEFT-GEPXR RIGHT-GEXPR)
-     (let* ([left-gexpr^
-             (local-expand
-              #'LEFT-GEPXR
-              'expression
-              '())]
-            [right-gexpr^
-             (local-expand
-              #'RIGHT-GEXPR
-              'expression
-              '())]
-            [matched (match-stx left-gexpr^ right-gexpr^)])
-       (or
-        matched
-        (raise-syntax-error #f "Failed to merge!" stx)))]))
+(define-for-syntax (merge left-gexpr right-gexpr)
+  (or
+   (match-stx (local-expand-expr left-gexpr) (local-expand-expr right-gexpr))
+   (raise-syntax-error #f "Failed to merge!" left-gexpr)))
 
 (define-for-syntax (expand-branches stx)
   (syntax-parse stx #:literals (quote-syntax branch?)
@@ -286,8 +246,8 @@
                 #`[(equal? recv-label #,label)
                    #,(expand-branches
                       expr)])))]
-    [(E ER ...)
-     #`(#,@(for/list ([expr (syntax->list #'(E ER ...))])
+    [(E ...)
+     #`(#,@(for/list ([expr (syntax->list #'(E ...))])
              (expand-branches expr)))]
     [_
      stx]))
@@ -315,6 +275,5 @@
                          GEXPR ...))))
                    #f))])
        #`(define-network
-           (syntax-parameterize ([process-list #'(PROC ...)])
-             #,@GEXPRS^)))]))
+           #,@GEXPRS^))]))
 
