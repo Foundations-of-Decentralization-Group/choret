@@ -101,7 +101,9 @@
     [(_ (at PROC LEXPR) TRUE-GEXPR FALSE-GEXPR)
      (if (cur-process? #'PROC)
          #'(if LEXPR TRUE-GEXPR FALSE-GEXPR)
-         (merge #'TRUE-GEXPR #'FALSE-GEXPR))]
+         (merge
+          (local-expand-expr #'TRUE-GEXPR)
+          (local-expand-expr #'FALSE-GEXPR)))]
     [(_ REST ...)
      #'(if REST ...)]))
 
@@ -152,8 +154,7 @@
        (raise-syntax-error
         #f
         "Selections with mismatched senders cannot be merged!"
-        #'L-SEND-PROC
-        #'R-SEND-PROC))
+        #'L-SEND-PROC))
 
      (define l-label-hash
        (make-immutable-hash
@@ -180,13 +181,9 @@
                   [expr (cdr pair)])
               (if (pair? expr)
                   ;; The case where a label is in both branches being merged
-                  (let* ([expr1 (car expr)]
-                         [expr2 (cdr expr)])
-                    #`[#,label
-                       #,(merge expr1 expr2)])
+                  #`[#,label #,(merge (car expr) (cdr expr))]
                   ;; The case where a label is in only one branch
-                  (begin
-                    #`[#,label #,expr])))))
+                  #`[#,label #,expr]))))
          #:local)
       'branch
       #t)]))
@@ -206,7 +203,7 @@
       'branch
       #t)]))
 
-(define-for-syntax (match-stx left-stx right-stx)
+(define-for-syntax (merge left-stx right-stx)
   (syntax-parse #`(#,left-stx #,right-stx) #:literals (quote-syntax branch?)
     [((quote-syntax (branch? L-REST ...) #:local)
       (quote-syntax (branch? R-REST ...) #:local))
@@ -218,7 +215,7 @@
      (let ([l-list (syntax->list #'(L ...))]
            [r-list (syntax->list #'(R ...))])
        (if (equal? (length l-list) (length r-list))
-           #`(#,@(map match-stx l-list r-list))
+           #`(#,@(map merge l-list r-list))
            (raise-syntax-error
             #f
             "Cannot merge mismatched number of expressions!"
@@ -230,11 +227,6 @@
           #f
           "Cannot merge mismatched expressions."
           left-stx))]))
-
-(define-for-syntax (merge left-gexpr right-gexpr)
-  (or
-   (match-stx (local-expand-expr left-gexpr) (local-expand-expr right-gexpr))
-   (raise-syntax-error #f "Failed to merge!" left-gexpr)))
 
 (define-for-syntax (expand-branches stx)
   (syntax-parse stx #:literals (quote-syntax branch?)
