@@ -2,7 +2,7 @@
 
 (require
  "define-chor-syntax.rkt"
- "../simple-networks/simple-networks.rkt"
+ "threads-network.rkt"
  racket/stxparam
  racket/block
  (for-syntax
