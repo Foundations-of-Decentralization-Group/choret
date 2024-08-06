@@ -7,7 +7,7 @@
 (test-case
  "Simple communication"
  (check-not-syntax-error
-  (require "../choret/choret.rkt")
+  (require choret)
   (chor (l1 l2)
         (define (at l1 x) 0)
         (define (at l2 x) 0)
@@ -19,7 +19,7 @@
 (test-case
  "Simple conditional without selection"
  (check-not-syntax-error
-  (require "../choret/choret.rkt")
+  (require choret)
   (chor (l1 l2)
         (define (at l2 x) 0)
         (if (at l1 #f)
@@ -30,7 +30,7 @@
 (test-case
  "Simple conditional with selection"
  (check-not-syntax-error
-  (require rackunit "../choret/choret.rkt")
+  (require rackunit choret)
   (chor (l1 l2)
         (define (at l2 x) 0)
         (define (at l2 y) 0)
@@ -43,7 +43,7 @@
 (test-case
  "Nested selections"
  (check-not-syntax-error
-  (require "../choret/choret.rkt")
+  (require choret)
   (chor (l1 l2)
         (define (at l2 x) 0)
         (if (at l1 #t)
@@ -65,7 +65,7 @@
 (test-case
  "Nested merges"
  (check-not-syntax-error
-  (require "../choret/choret.rkt")
+  (require choret)
   (chor (l1 l2)
         (define (at l2 x) 0)
         (define (at l2 res)
@@ -81,7 +81,7 @@
 (test-case
  "let with multiple bindings"
  (check-not-syntax-error
-  (require "../choret/choret.rkt")
+  (require choret)
   (chor (l1 l2 l3)
         (define (at l3 x) 0)
         (define (at l3 y) 0)
@@ -94,7 +94,7 @@
 (test-case
  "Nested let forms"
  (check-not-syntax-error
-  (require "../choret/choret.rkt")
+  (require choret)
   (chor (l1 l2 l3)
         (define (at l3 x) 0)
         (define (at l3 y) 0)
@@ -107,7 +107,7 @@
 (test-case
  "Reference let binding out of scope"
  (check-has-syntax-error
-  (require "../choret/choret.rkt")
+  (require choret)
   (chor (l1 l2 l3)
         (define (at l3 x) 0)
         (define (at l3 y) 0)
@@ -121,7 +121,7 @@
 (test-case
  "Simple choreographic function"
  (check-not-syntax-error
-  (require "../choret/choret.rkt" rackunit)
+  (require choret rackunit)
   (chor (l1 l2)
         (define F
           (lambda (X)
@@ -137,7 +137,7 @@
 (test-case
  "Passing a chor function to a chor function"
  (check-not-syntax-error
-  (require "../choret/choret.rkt" rackunit)
+  (require choret rackunit)
   (chor (l1 l2)
         (define F
           (lambda (F2)
@@ -154,7 +154,7 @@
 (test-case
  "Merging with choreographic functions"
  (check-not-syntax-error
-  (require "../choret/choret.rkt" rackunit)
+  (require choret rackunit)
   (chor (l1 l2)
         (if (at l1 #t)
             (let ([(at l2 x) (at l2 5)])
@@ -171,7 +171,7 @@
 (test-case
  "Context based expansion of Choret macros"
  (check-not-syntax-error
-  (require "../choret/choret.rkt" rackunit)
+  (require choret rackunit)
   (define regular-func (lambda (x y) (+ x y)))
   (chor (l1 l2)
         (define (at l1 x) (at l1 10))
