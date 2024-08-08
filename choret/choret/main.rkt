@@ -20,12 +20,6 @@
   (define (cur-process? proc)
     (free-identifier=? (syntax-parameter-value #'cur-process) proc))
 
-  (define (fmt-net-proc proc)
-    (format-id
-     proc
-     "process-~a"
-     proc))
-
   (define (eq-process? proc1 proc2)
     (free-identifier=? proc1 proc2))
 
@@ -111,9 +105,9 @@
   (syntax-parse stx #:literals (at)
     [(_ (at SEND-PROC SEND-LEXPR) RECV-PROC)
      (cond [(cur-process? #'SEND-PROC)
-            #`(send #,(fmt-net-proc #'RECV-PROC) 'void SEND-LEXPR)]
+            #'(send RECV-PROC 'void SEND-LEXPR)]
            [(cur-process? #'RECV-PROC)
-            #`(recv #,(fmt-net-proc #'SEND-PROC) 'void)]
+            #`(recv SEND-PROC 'void)]
            [else #'(void)])]))
 
 (define/provide-chor-syntax (sel~> stx)
@@ -141,8 +135,8 @@
 (define-syntax (choose! stx)
   (syntax-parse stx
     [(_ RECV-PROC LABEL GEXPR)
-     #`(begin
-         (send #,(fmt-net-proc #'RECV-PROC) 'void LABEL)
+     #'(begin
+         (send RECV-PROC 'void LABEL)
          GEXPR)]))
 
 (define-for-syntax (merge-branches left-branch right-branch)
@@ -231,7 +225,7 @@
 (define-for-syntax (expand-branches stx)
   (syntax-parse stx #:literals (quote-syntax branch?)
     [(quote-syntax (branch? SEND-PROC (LABEL EXPR) ...) #:local)
-     #`(let ([recv-label (recv #,(fmt-net-proc #'SEND-PROC) 'void)])
+     #`(let ([recv-label (recv SEND-PROC 'void)])
          (cond
            #,@(for/list ([label (syntax->list #'(LABEL ...))]
                          [expr (syntax->list #'(EXPR ...))])
@@ -260,7 +254,7 @@
              (for/list ([proc (syntax->list #'(PROC ...))])
                #`(syntax-parameterize ([cur-process #'#,proc])
                    (define-process
-                     #,(fmt-net-proc proc)
+                     #,proc
                      (expand-process
                       (block
                        (syntax-parameterize ([in-global-expr #t])
