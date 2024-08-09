@@ -31,6 +31,35 @@
 
 
 ;;; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+;;; Syntax classes.
+;;; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+
+(begin-for-syntax
+  ;; Syntax class for at forms used in binding positions. Ensures that a form
+  ;; is only used in an "in-global-expr" context.
+  (define-syntax-class at-id
+    [pattern ((~datum at) PROCESS:id ID:id)
+      #:fail-unless
+      (syntax-parameter-value #'in-global-expr)
+      "Cannot use an `at` identifier in a local expression!"
+      #:attr process #'PROCESS
+      #:attr id #'ID])
+
+  ;; Syntax class for at forms which evaluate a local expression. Note that the
+  ;; "lexpr" atribute has the LEXPR form wrapped with a syntax parameterization
+  ;; that sets "in-global-expr" to #f. Also ensures that a form is only used in
+  ;; an "in-global-expr" context.
+  (define-syntax-class at-expr
+    [pattern ((~datum at) PROCESS:id LEXPR:expr)
+      #:fail-unless
+      (syntax-parameter-value #'in-global-expr)
+      "Cannot use an `at` identifier in a local expression!"
+      #:attr process #'PROCESS
+      #:attr lexpr #'(syntax-parameterize ([in-global-expr #f]) LEXPR)]))
+
+
+;;; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ;;; Definitions for new Choret syntax that does NOT override (or does not intend
 ;;; to override) existing Racket forms. These forms are only valid inside the
 ;;; body of a "chor" form.
@@ -41,16 +70,17 @@
   (syntax-parse stx
     [(_ PROC LEXPR)
      (if (cur-process? #'PROC)
-         #'LEXPR
+         #'(syntax-parameterize ([in-global-expr #f])
+             LEXPR)
          #'(void))]))
 
 (define/provide-chor-syntax (~> stx)
-  (syntax-parse stx #:literals (at)
-    [(_ (at SEND-PROC SEND-LEXPR) RECV-PROC)
-     (cond [(cur-process? #'SEND-PROC)
-            #'(send RECV-PROC 'void SEND-LEXPR)]
+  (syntax-parse stx
+    [(_ SEND-AT:at-expr RECV-PROC)
+     (cond [(cur-process? #'SEND-AT.PROCESS)
+            #'(send RECV-PROC 'void SEND-AT.lexpr)]
            [(cur-process? #'RECV-PROC)
-            #`(recv SEND-PROC 'void)]
+            #`(recv SEND-AT.PROCESS 'void)]
            [else #'(void)])]))
 
 (define/provide-chor-syntax (sel~> stx)
@@ -90,31 +120,31 @@
      (let ([bindings
             (filter
              (lambda (x) x)
-             (for/list ([at-expr (syntax->list #'(AT-EXPR ...))]
+             (for/list ([expr-at (syntax->list #'(AT-EXPR ...))]
                         [val-expr (syntax->list #'(VAL-GEXPR ...))])
-               (syntax-parse at-expr #:literals (at)
-                 [(at PROC LEXPR)
-                  (if (cur-process? #'PROC)
-                      #`[LEXPR #,val-expr]
+               (syntax-parse expr-at
+                 [AT:at-id
+                  (if (cur-process? #'AT.process)
+                      #`[AT.id #,val-expr]
                       #`[#,(gensym 'IGNORE-) #,val-expr])]
                  [_ (raise-syntax-error
-                     #f "Expected located expression!" at-expr)])))])
+                     #f "Expected located expression!" expr-at)])))])
        #`(let #,bindings GBODY ...))]))
 
 (define/provide-chor-syntax (define/chor stx) #:override define
-  (syntax-parse stx #:literals (at)
-    [(_ (at PROC LEXPR) BODY-GEXPR ...)
-     (if (cur-process? #'PROC)
-         #'(define LEXPR BODY-GEXPR ...)
+  (syntax-parse stx
+    [(_ AT:at-id BODY-GEXPR ...)
+     (if (cur-process? #'AT.process)
+         #'(define AT.id BODY-GEXPR ...)
          #'(let () BODY-GEXPR ...))]
     [(_ ID GEXPR)
      #'(define ID GEXPR)]))
 
 (define/provide-chor-syntax (set!/chor stx) #:override set!
-  (syntax-parse stx #:literals (at)
-    [(_ (at PROC LEXPR) GEXPR)
-     (if (cur-process? #'PROC)
-         #'(set! LEXPR GEXPR)
+  (syntax-parse stx
+    [(_ AT:at-id GEXPR)
+     (if (cur-process? #'AT.process)
+         #'(set! AT.id GEXPR)
          #'(let () GEXPR))]
     [(_ ID GEXPR)
      #'(set! ID GEXPR)]))
@@ -124,20 +154,20 @@
     [(_ (GARG ...) GBODY ...)
      (let ([args
             (for/list ([garg (syntax->list #'(GARG ...))])
-              (syntax-parse garg #:literals (at)
-                [(at PROC LEXPR)
-                 (if (cur-process? #'PROC)
-                     #'LEXPR
-                     (format-id #'LEXPR "UNUSED-located-at-~a" #'PROC))]
+              (syntax-parse garg
+                [AT:at-id
+                 (if (cur-process? #'AT.process)
+                     #'AT.id
+                     (format-id #'AT.id "UNUSED-located-at-~a" #'PROC))]
                 [ARG #'ARG]))])
        #`(lambda #,args
            GBODY ...))]))
 
 (define/provide-chor-syntax (if/chor stx) #:override if
-  (syntax-parse stx #:literals (at)
-    [(_ (at PROC LEXPR) TRUE-GEXPR FALSE-GEXPR)
-     (if (cur-process? #'PROC)
-         #'(if LEXPR TRUE-GEXPR FALSE-GEXPR)
+  (syntax-parse stx
+    [(_ AT:at-expr TRUE-GEXPR FALSE-GEXPR)
+     (if (cur-process? #'AT.process)
+         #'(if AT.lexpr TRUE-GEXPR FALSE-GEXPR)
          (merge
           (local-expand-expr #'TRUE-GEXPR)
           (local-expand-expr #'FALSE-GEXPR)))]

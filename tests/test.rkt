@@ -131,7 +131,7 @@
 
         (let ([(at l2 result)
                (F (at l1 10))])
-          (at l2 (at l2 (println result)))
+          (at l2 (println result))
           (at l2 (check-equal? result 20))))))
 
 (test-case
@@ -196,3 +196,19 @@
     (void))
   (chor (l1 l2)
         (at l1 (println x)))))
+
+(test-case
+ "Context based expansion of Choret macros, 4"
+ (check-has-syntax-error
+  (require choret rackunit)
+  (chor (l1 l2)
+        (define (at l1 f)
+          (at l1 (lambda ((at l1 x)) (add1 x))))
+        (at l1 (check-equal? (f 4) 5)))))
+
+(test-case
+ "Context based expansion of Choret macros, 5"
+ (check-has-syntax-error
+  (require choret rackunit)
+  (chor (l1 l2)
+        (~> (at l1 (at l1 5)) l2))))
