@@ -183,6 +183,7 @@
 (test-case
  "Context based expansion of Choret macros, 2"
  (check-has-syntax-error
+  (require choret rackunit)
   (at l1 10)
   (chor (l1 l2)
         (at l1 (println 0)))))
@@ -190,6 +191,7 @@
 (test-case
  "Context based expansion of Choret macros, 3"
  (check-has-syntax-error
+  (require choret rackunit)
   (let ([(at l1 x) (at l1 10)])
     (void))
   (chor (l1 l2)
