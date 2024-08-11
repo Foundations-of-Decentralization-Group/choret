@@ -127,8 +127,7 @@
                   (if (cur-process? #'AT.process)
                       #`[AT.id #,val-expr]
                       #`[#,(gensym 'IGNORE-) #,val-expr])]
-                 [_ (raise-syntax-error
-                     #f "Expected located expression!" expr-at)])))])
+                 [ID #`(ID #,val-expr)])))])
        #`(let #,bindings GBODY ...))]))
 
 (define/provide-chor-syntax (define/chor stx) #:override define

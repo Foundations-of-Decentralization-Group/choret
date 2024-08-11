@@ -105,6 +105,19 @@
         (at l3 (println (+ x y))))))
 
 (test-case
+ "Let with choreographic variable binding"
+ (check-not-syntax-error
+  (require choret rackunit)
+  (chor (l1 l2)
+        (define Add1
+          (lambda ((at l1 x))
+            (at l1 (add1 x))))
+        (define (at l2 x) (at l2 10))
+        (let ([X (~> (at l2 x) l1)])
+          (let ([(at l1 x) (Add1 X)])
+            (at l1 (check-equal? x 11)))))))
+
+(test-case
  "Reference let binding out of scope"
  (check-has-syntax-error
   (require choret)
