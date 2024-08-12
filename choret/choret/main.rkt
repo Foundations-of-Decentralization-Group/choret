@@ -16,18 +16,13 @@
 (define-syntax (chor stx)
   (syntax-parse stx
     [(_ (PROC ...) GEXPR ...)
-     (let* ([GEXPRS^
-             (for/list ([proc (syntax->list #'(PROC ...))])
-               #`(syntax-parameterize ([cur-process #'#,proc])
-                   (define-process
-                     #,proc
-                     (expand-process
-                      (block
-                       (syntax-parameterize ([in-global-expr #t])
-                         GEXPR ...))))
-                   #f))])
-       #`(define-network
-           #,@GEXPRS^))]))
+     #'(define-network
+         (syntax-parameterize ([cur-process #'PROC])
+           (define-process PROC
+             (expand-process
+              (block
+               (syntax-parameterize ([in-global-expr #t])
+                 GEXPR ...))))) ...)]))
 
 
 ;;; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -56,7 +51,18 @@
       (syntax-parameter-value #'in-global-expr)
       "Cannot use an `at` identifier in a local expression!"
       #:attr process #'PROCESS
-      #:attr lexpr #'(syntax-parameterize ([in-global-expr #f]) LEXPR)]))
+      #:attr lexpr #'(syntax-parameterize ([in-global-expr #f]) LEXPR)])
+
+  ;; Syntax class for "branch?" forms which are hidden inside of "quote-syntax"
+  ;; forms and which are tagged with the "'branch" syntax property.
+  (define-syntax-class quoted-branch
+    [pattern ((~literal quote-syntax)
+              ((~literal branch?) SEND-PROC [LABEL GEXPR] ...)
+              #:local)
+      #:fail-unless
+      (syntax-property this-syntax 'branch)
+      "Expected a `branch?` form!"
+      #:attr branch #'(branch? SEND-PROC [LABEL GEXPR] ...)]))
 
 
 ;;; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -90,7 +96,7 @@
          #'(begin (choose! RECV-PROC LABEL GEXPR) ...)
          #`(begin
              #,@(filter
-                 (lambda x x)
+                 values
                  (for/list ([recv-proc (syntax->list #'(RECV-PROC ...))]
                             [gexpr (syntax->list #'(GEXPR ...))]
                             [label (syntax->list #'(LABEL ...))])
@@ -101,8 +107,7 @@
                         #'SEND-PROC
                         recv-proc)
                        (if (cur-process? recv-proc)
-                           #`(branch?
-                              SEND-PROC [#,label #,gexpr])
+                           #`(branch? SEND-PROC [#,label #,gexpr])
                            #f))))))]))
 
 
@@ -206,17 +211,13 @@
 (define-syntax (branch? stx)
   (syntax-parse stx #:literals (branch?)
     [(branch? SEND-PROC [LABEL GEXPR] ...)
-     (syntax-property
-      #`(quote-syntax
-         (branch?
-          SEND-PROC
-          #,@(for/list ([label (syntax->list #'(LABEL ...))]
-                        [gexpr (syntax->list #'(GEXPR ...))])
-               #`[#,label
-                  #,(local-expand-expr gexpr)]))
-         #:local)
-      'branch
-      #t)]))
+     (quote-syntax-branch
+      #`(branch?
+         SEND-PROC
+         #,@(for/list ([label (syntax->list #'(LABEL ...))]
+                       [gexpr (syntax->list #'(GEXPR ...))])
+              #`[#,label
+                 #,(local-expand-expr gexpr)])))]))
 
 ;; (expand-process EXPR)
 ;; This macro is needed by the "chor" macro to force Racket's expander to expand
@@ -226,12 +227,7 @@
 ;; be improved in the future.
 (define-syntax (expand-process stx)
   (syntax-parse stx
-    [(_ EXPR)
-     (expand-branches
-      (local-expand
-       #'EXPR
-       'expression
-       '()))]))
+    [(_ EXPR) (expand-branches (local-expand-expr #'EXPR))]))
 
 
 ;;; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -243,13 +239,9 @@
 ;; (in the choreographic sense) and if successful returns a single, merged,
 ;; syntax object. If merging fails a syntax error is raised.
 (define-for-syntax (merge left-stx right-stx)
-  (syntax-parse #`(#,left-stx #,right-stx) #:literals (quote-syntax branch?)
-    [((quote-syntax (branch? L-REST ...) #:local)
-      (quote-syntax (branch? R-REST ...) #:local))
-     #:when (and
-             (syntax-property left-stx 'branch)
-             (syntax-property left-stx 'branch))
-     (merge-branches #'(branch? L-REST ...) #'(branch? R-REST ...))]
+  (syntax-parse #`(#,left-stx #,right-stx)
+    [(LEFT:quoted-branch RIGHT:quoted-branch)
+     (merge-branches #'LEFT.branch #'RIGHT.branch)]
     [((L ...) (R ...))
      (let ([l-list (syntax->list #'(L ...))]
            [r-list (syntax->list #'(R ...))])
@@ -297,22 +289,18 @@
         l-label-hash
         r-label-hash
         #:combine/key (lambda (_ a b) (cons a b))))
-     (syntax-property
-      #`(quote-syntax
-         (branch?
-          L-SEND-PROC
-          #,@
-          (for/list ([pair (hash->list label-union)])
-            (let ([label (car pair)]
-                  [expr (cdr pair)])
-              (if (pair? expr)
-                  ;; The case where a label is in both branches being merged
-                  #`[#,label #,(merge (car expr) (cdr expr))]
-                  ;; The case where a label is in only one branch
-                  #`[#,label #,expr]))))
-         #:local)
-      'branch
-      #t)]))
+     (quote-syntax-branch
+      #`(branch?
+         L-SEND-PROC
+         #,@
+         (for/list ([pair (hash->list label-union)])
+           (let ([label (car pair)]
+                 [expr (cdr pair)])
+             (if (pair? expr)
+                 ;; The case where a label is in both branches being merged
+                 #`[#,label #,(merge (car expr) (cdr expr))]
+                 ;; The case where a label is in only one branch
+                 #`[#,label #,expr])))))]))
 
 ;; After the expansions for projection and merging are complete for a process,
 ;; only Racket core forms are left. Some of these core forms are not truly fully
@@ -322,12 +310,12 @@
 ;; recursively checks for such hidden "branch?" forms and converts them into
 ;; "cond" forms.
 (define-for-syntax (expand-branches stx)
-  (syntax-parse stx #:literals (quote-syntax branch?)
-    [(quote-syntax (branch? SEND-PROC (LABEL EXPR) ...) #:local)
-     #`(let ([recv-label (recv SEND-PROC 'void)])
+  (syntax-parse stx
+    [BRANCH:quoted-branch
+     #`(let ([recv-label (recv BRANCH.SEND-PROC 'void)])
          (cond
-           #,@(for/list ([label (syntax->list #'(LABEL ...))]
-                         [expr (syntax->list #'(EXPR ...))])
+           #,@(for/list ([label (syntax->list #'(BRANCH.LABEL ...))]
+                         [expr (syntax->list #'(BRANCH.GEXPR ...))])
                 #`[(equal? recv-label #,label)
                    #,(expand-branches
                       expr)])))]
@@ -365,5 +353,10 @@
 
 ;; Convenience function for local-expand.
 (define-for-syntax (local-expand-expr stx)
-  (let-values ([(expanded-stx) (local-expand stx 'expression '())])
-    expanded-stx))
+  (local-expand stx 'expression '()))
+
+;; Returns a syntax object which uses "quote-syntax" to hide [stx] from
+;; expansion and adds the "'branch" syntax property to help distinguish it from
+;; possible regular uses of "quote-syntax".
+(define-for-syntax (quote-syntax-branch stx)
+  (syntax-property #`(quote-syntax #,stx #:local) 'branch #t))
