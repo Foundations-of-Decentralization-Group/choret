@@ -6,27 +6,281 @@
 
 @title{Choret: Functional Choreographic Programming for Racket}
 
-Choret is an in-development Racket library which allows for choreographic
-programming. It implements an untyped language based off of @italic{Pirouette},
-a functional choreographic programming language developed by Andrew K. Hirsch
-(my research advisor) and Deepak Garg. Their paper, @italic{Pirouette:
-Higher-Order Typed Functional Choreographies}, can be found here:
-@url{https://dl.acm.org/doi/10.1145/3498684}.
+Choret is an in-development Racket library which allows for choreographic programming. It implements an untyped language based off of @italic{Pirouette}, a functional choreographic programming language developed by Andrew K. Hirsch (my research advisor) and Deepak Garg. Their paper, @italic{Pirouette: Higher-Order Typed Functional Choreographies}, can be found here: @url{https://dl.acm.org/doi/10.1145/3498684}.
 
 @section{Getting Started}
 
-todo
+@subsection{Requirements to Run}
 
-@section{Hello World! Example}
+Currently Choret requires Racket 8.3 or greater. Unfortunately, some Linux distros (such as those based off of Ubuntu 22.04) ship with older versions of Racket by default. If your distribution does this, consider using the @tt{cross} package: @url{https://docs.racket-lang.org/raco-cross/index.html}.
+
+To use the @tt{cross} package, first the package must be installed with the following command:
+@verbatim|{raco pkg install cross}|
+To run Racket with a different version use the command:
+@verbatim|{raco cross --version 8.3 racket}|
+
+@subsection{Installing Choret as a Library}
+
+As of right now Choret is not yet availible via the Racket Package Index. Instead Choret needs to be installed manually, which is not @italic{too} difficult. First clone the Choret repository: @url{https://github.com/Foundations-of-Decentralization-Group/choret}. Once the repository has been cloned, say to a directory named "choret", there should be another sub-directory named "choret"; change directory (@tt{cd}) into that directory and run the following command:
+@verbatim|{raco pkg install}|
+
+@section{What is Choreographic Programming?}
+
+In a traditional system with multiple threads/processes/etc. interacting with each other, the programmer has to carefully write multiple independent programs while also avoiding things such as deadlock or livelock. In particular, encoding a pattern of sends and recieves between processes in a system can be error prone since it is relatively easy to write mismatched send and recieve actions between two separately maintained programs; it is entirely up to the programmer to maintain the state and invariants of the entire system.
+
+Choreographic programming aims to solve this problem by allowing programmers to give a @italic{global} description of the program. In other words, the programmer writes a single program that describes the logic of the system/protocol as a whole, explicity specifying the when data needs to be transferred from one participant to another.
+
+@subsection{The Bookseller Example in Racket}
+
+Consider the quintessential example of an online bookseller. In order to sell a
+book, the following should happen between a buyer and the seller:
+@itemlist[
+  @item{The buyer sends the title of a book they would like to buy to the
+  seller.}
+  @item{The seller looks up the book title and retrieves the cost of the book;
+  the price is communicated back to the buyer.}
+  @item{The buyer tells the seller whether or not they will buy the book.}
+  @item{If the buyer says they will buy the book, the seller completes the
+  transaction by giving the buyer a shipping date.}
+ #:style 'ordered
+]
+
+Seems simple enough, this is what such a program might look like in Racket, with the matching sends and recieves commented with a number in square brackets (using threads and channels for simplicity):
+
+@#reader scribble/comment-reader
+(racketblock
+(define ch (make-channel))
+
+;; Buyer thread
+(define buyer
+  (thread
+   (lambda ()
+     (define book-title "Alice in Wonderland")
+     (define budget 20)
+
+     (channel-put ch book-title) ;; [1]
+     (define price (channel-get ch)) ;; [2]
+     (if (< price budget)
+         (let ()
+           (channel-put ch 'buy-book) ;; [3]
+           (define date (channel-get ch))
+           (printf "My book should arrive on ~a!~n" date)) ;; [4]
+         (printf "Nevermind!~n")))))
+
+;; Seller thread
+(define seller
+  (thread
+   (lambda ()
+     (define price-catalog (make-hash '(["Alice in Wonderland" . 25])))
+
+     (define book-title (channel-get ch)) ;; [1]
+     (define price (hash-ref price-catalog book-title))
+     (channel-put ch price) ;; [2]
+     (define will-buy (channel-get ch)) ;; [3]
+     (if (equal? will-buy 'buy-book)
+         (channel-put ch "January 1, 1970") ;; [4]
+         (printf "Let me know if you change your mind!~n")))))
+
+(thread-wait buyer)
+(thread-wait seller)
+)
+
+This seems correct, and given that the buyer's budget (20) is lower than the cost of the book (25) the expected result of this program would be:
+@verbatim|{
+Nevermind!
+Let me know if you change your mind!
+}|
+However the actual output of
+this program is:
+@verbatim|{
+Nevermind!
+}|
+What's the problem? Well, the buyer needs to let the seller know if they are going to buy the book, but in the buyer thread code, the buyer only communicates the @italic{knowledge of this choice} if decides to buy the book; when the buyer does not buy the book it leaves the seller deadlocked waiting on the buyer's decision.
+
+Even though this may be a trivial example, it emphasizes the importance of correctly matching sends and recieves; in much more complicated programs it may be much harder to correctly do this by hand.
+
+@subsection{The Bookseller Example in Choret}
+
+If manually matching sends and recieves is error prone, what can be done differently?
+
+Looking back in the last section, the bookseller system was described as a series of steps:
+
+@itemlist[
+  @item{The buyer sends the title of a book they would like to buy to the
+  seller.}
+  @item{The seller looks up the book title and retrieves the cost of the book;
+  the price is communicated back to the buyer.}
+  @item{The buyer tells the seller whether or not they will buy the book.}
+  @item{If the buyer says they will buy the book, the seller completes the
+  transaction by giving the buyer a shipping date.}
+ #:style 'ordered
+]
+
+This English prose description already describes what the system should do in a "global" manner. This can be translated into pseudo-code:
+
+@verbatim|{
+buyer.title ~> seller.title
+seller.catalog(title) ~> buyer.price
+if buyer.price < buyer.budget then
+    buyer informs seller "I'll buy the book"
+    seller.getDate(title) ~> buyer.date
+    buyer.print(date)
+else
+    buyer informs seller "I won't buy the book"
+    seller.print("Let me know if you change your mind!")
+endif
+}|
+
+The above pseudo-code basically describes a choreographic program! Finally here is the bookseller program written in Choret:
+
+@#reader scribble/comment-reader
+(racketblock
+(require choret)
+
+(chor (buyer seller)
+      (define (at buyer book-title) (at buyer "Alice in Wonderland"))
+      (define (at buyer budget) (at buyer 30))
+
+      (define (at seller price-catalog)
+        (at seller (make-hash '(["Alice in Wonderland" . 25]))))
+
+      (define (at seller book-title) (~> (at buyer book-title) seller)) ;; [1]
+      (define (at seller price) (at seller (hash-ref price-catalog book-title)))
+      (define (at buyer price) (~> (at seller price) buyer))
+      (if (at buyer (< price budget))
+          (sel~> buyer
+                 [seller 'buy-book
+                         (let ()
+                           (define (at seller date)
+                             (at seller "January 1, 1970"))
+                           (define (at buyer date)
+                             (~> (at seller date) buyer))
+                           (at buyer
+                               (printf
+                                "My book should arrive on ~a!~n"
+                                date)))])
+          (sel~> buyer
+                 [seller 'reject-book
+                         (begin
+                           (at buyer (printf "Nevermind!~n"))
+                           (at seller
+                               (printf
+                                "Let me know if you change your mind!~n")))])))
+)
+
+This is a somewhat verbose piece of code so here is a breakdown of what is going on:
+
+First, there are these @racket[(define (at LOCATION ID) EXPR)] forms which define a variable which is located at the process indicated by @racket[LOCATION]; @racket[EXPR] can be any Choret form which evaluates to a value that is also located at @racket[LOCATION].
+
+There are also communication primitives of the form @racket[(~> (at SENDER LOCAL-EXPR) RECIEVER)], these forms evaluate @racket[LOCAL-EXPR] at the location @racket[SENDER] and produce a value located at the process @racket[RECIEVER]; the underlying implementation executes a @racket[~>] form by sending the result of evaluating @racket[LOCAL-EXPR] and sending the value from @racket[SENDER] to @racket[RECIEVER].
+
+"at" expressions, which have the form @racket[(at LOCATION LOCAL-EXPR)] evaluate @racket[LOCAL-EXPR] as a normal Racket expression at the process indicated by @racket[LOCATION].
+
+The forms that comprise the first half of the choreography are fairly straightforward, however, things get a little more involved when handling conditionals.
+
+@subsection{Conditional Expressions}
+
+What makes conditional branching difficult in choreographic programming? It helps to think about the code that has to be generated for each process, which is referred to as the @italic{projection} of each process.
+
+Take for example the form
+@racketblock[
+(if (at L1 (equal? x y))
+  (~> (at L1 5) L2)
+  (~> (at L1 10) L2))
+]
+
+The projection for process @racket[L1] is straightforward:
+@racketblock[
+(if (equal? x y)
+  (send L2 5)
+  (send L2 10))
+]
+
+However the projection for @racket[L2] is trickier. In this case one may notice that @racket[L2]'s projection for each branch is the same:
+@racketblock[
+(if ???
+  (recieve L1)
+  (recieve L1))
+]
+
+These subforms for each branch are the same, and thus can be combinding into a single form:
+@racketblock[
+(recieve L1)
+]
+
+But what happens if we instead project the following:
+@racketblock[
+(if (at L1 (equal? x y))
+  (~> (at L2 5) L1)
+  (~> (at L2 10) L1))
+]
+for @racket[L2]:
+@racketblock[
+(if ???
+  (send L1 5)
+  (send L1 10))
+]
+
+Since @racket[L2] now needs to do something different in each branch, there needs to be some way to communicate the knowledge of @racket[L1]'s decision to @racket[L2]
+
+@subsection{Knowledge of Choice}
+
+The dependency between processes about which branch should be taken is known as @italic{Knowledge of Choice}. To comminicate Knowledge of Choice a message from the deciding process (such as @racket[L1] in the example above) to other dependent processes needs to be sent.
+
+In the previous example, it is trivial to understand that @racket[L1] should send @racket[L2] a message about which branch to take. So why not have the compiler just automatically do this for the programmer? A problem arises in programs with more processes; if the compiler does this naively, then it has to send a message to every process, even if not all processes need to know the decision at @racket[L1]; otherwise the compiler needs to automatically infer which processes need Knowledge of Choice, which can be difficult to do.
+
+Instead of doing either of those things, Choret requires the programmer to explicitly state Knowledge of Choice where appropriate. This is accomplished using the @racket[(sel~> SENDER [RECIEVER LABEL EXPR] ...)] form to perform what is known as a @italic{selection}. The selection form can be thought of as sending a message from @racket[SENDER], which should be the process which actually determines whether to take the branch, to a multiple recieving processes, where for each @racket[RECIEVER], @racket[LABEL] is a unique value that represents the branch to be taken and @racket[EXPR] is a Choret expression to be evaluated for that particular branch.
+
+The example from the last section can be updated to use selections as appropriate:
 
 @racketblock[
-(chor (A B)
-      (define (at A msg) "Hello World!")
-      (define (at B print-msg) (lambda (msg) (println msg)))
+(if (at L1 (equal? x y))
+  (sel~> L1 [L2 'equal (~> (at L2 5) L1)])
+  (sel~> L1 [L2 'not-equal (~> (at L2 10) L1)]))
+]
+which when projected for @racket[L2] would be:
+@racketblock[
+(let ([L1-decision (recieve L1)])
+  (cond [(equal? L1-decision 'equal)
+         (~> (at L2 5) L1)]
+        [(equal? L1-decision 'not-equal)
+         (~> (at L2 10) L1)]))
+]
 
-      (let ([(at B x) (~> (at A msg) B)])
-        (at B (print-msg x))))
- ]
+@subsection{Simplified Bookseller Example in Choret}
+
+The previous bookseller example in Choret was a bit verbose and repetitive, but this can be improved by using more of the forms and idioms availible in Choret:
+
+@#reader scribble/comment-reader
+(racketblock
+(chor (buyer seller)
+      (define (at buyer book-title) (at buyer "Alice in Wonderland"))
+      (define (at buyer budget) (at buyer 30))
+
+      (define (at seller price-catalog)
+        (at seller (make-hash '(["Alice in Wonderland" . 25]))))
+
+      (define (at buyer price)
+        (let ([(at seller book-title) (~> (at buyer book-title) seller)])
+          (~> (at seller (hash-ref price-catalog book-title)) buyer)))
+
+      (if (at buyer (< price budget))
+          (sel~> buyer
+                 [seller 'buy-book
+                         (let ([(at buyer date)
+                                (~> (at seller "January 1, 1970") buyer)])
+                           (at buyer
+                               (printf
+                                "My book should arrive on ~a!~n"
+                                date)))])
+          (sel~> buyer
+                 [seller 'reject-book
+                         (begin
+                           (at buyer (printf "Nevermind!~n"))
+                           (at seller
+                               (printf
+                                "Let me know if you change your mind!~n")))])))
+)
 
 @section{Choret Forms}
 
