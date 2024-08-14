@@ -2,7 +2,7 @@
 
 (define collection 'multi)
 
-(define deps '(("base" #:version "8.3")))
+(define deps '("base"))
 
 (define build-deps '("scribble-lib" "racket-doc"))
 

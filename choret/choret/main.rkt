@@ -310,15 +310,17 @@
 ;; recursively checks for such hidden "branch?" forms and converts them into
 ;; "cond" forms.
 (define-for-syntax (expand-branches stx)
-  (syntax-parse stx
+  (syntax-parse (syntax-disarm stx #f)
     [BRANCH:quoted-branch
-     #`(let ([recv-label (recv BRANCH.SEND-PROC 'void)])
-         (cond
-           #,@(for/list ([label (syntax->list #'(BRANCH.LABEL ...))]
-                         [expr (syntax->list #'(BRANCH.GEXPR ...))])
-                #`[(equal? recv-label #,label)
-                   #,(expand-branches
-                      expr)])))]
+     (syntax-rearm
+      #`(let ([recv-label (recv BRANCH.SEND-PROC 'void)])
+          (cond
+            #,@(for/list ([label (syntax->list #'(BRANCH.LABEL ...))]
+                          [expr (syntax->list #'(BRANCH.GEXPR ...))])
+                 #`[(equal? recv-label #,label)
+                    #,(expand-branches
+                       expr)])))
+      stx)]
     [(E ...)
      #`(#,@(for/list ([expr (syntax->list #'(E ...))])
              (expand-branches expr)))]
