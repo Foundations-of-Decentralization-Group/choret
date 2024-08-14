@@ -194,12 +194,14 @@ However the projection for @racket[L2] is trickier. In this case one may notice 
   (recieve L1))
 ]
 
-These subforms for each branch are the same, and thus can be combinding into a single form:
+These subforms for each branch are the same, and thus can be combinded into a single form:
 @racketblock[
 (recieve L1)
 ]
 
-But what happens if we instead project the following:
+This combining of the branches of the @racket[if] form is known as @italic{merging}. In fact whenever an @racket[if] expresssion is projected for processes other than the one in the guard expression (in this case @racket[L1]), the two branches are merged together. Merging is strictly something that is performed at compile time.
+
+That is all well and good, but what happens if one tries to project the following instead:
 @racketblock[
 (if (at L1 (equal? x y))
   (~> (at L2 5) L1)
@@ -212,9 +214,9 @@ for @racket[L2]:
   (send L1 10))
 ]
 
-Since @racket[L2] now needs to do something different in each branch, there needs to be some way to communicate the knowledge of @racket[L1]'s decision to @racket[L2]
+There are two problems here. First, since @racket[L2] now needs to do something different in each branch, there needs to be some way to communicate the knowledge of @racket[L1]'s decision to @racket[L2]. Second, @racket[L2]'s projections of the branches cannot be merged together as they are not identical (the @racket[5] and @racket[10] do not match). In the next section, @italic{slections} will be used to solve both of these problems.
 
-@subsection{Knowledge of Choice}
+@subsection{Selection and Knowledge of Choice}
 
 The dependency between processes about which branch should be taken is known as @italic{Knowledge of Choice}. To comminicate Knowledge of Choice a message from the deciding process (such as @racket[L1] in the example above) to other dependent processes needs to be sent.
 
@@ -229,7 +231,19 @@ The example from the last section can be updated to use selections as appropriat
   (sel~> L1 [L2 'equal (~> (at L2 5) L1)])
   (sel~> L1 [L2 'not-equal (~> (at L2 10) L1)]))
 ]
-which when projected for @racket[L2] would be:
+which when projected for @racket[L2] would be something like:
+@racketblock[
+(merge
+  (sel~> L1 [L2 'equal (~> (at L2 5) L1)])
+  (sel~> L1 [L2 'not-equal (~> (at L2 10) L1)]))
+]
+which would be merged into:
+which when projected for @racket[L2] would be something like:
+@racketblock[
+(sel~> L1 [L2 'equal (~> (at L2 5) L1)]
+          [L2 'not-equal (~> (at L2 10) L1)])
+]
+which would expand into:
 @racketblock[
 (let ([L1-decision (recieve L1)])
   (cond [(equal? L1-decision 'equal)
@@ -237,6 +251,12 @@ which when projected for @racket[L2] would be:
         [(equal? L1-decision 'not-equal)
          (~> (at L2 10) L1)]))
 ]
+
+As seen above, selections are also important for merging. In fact the case where two selections (@racket[sel~>] forms) are being merged together is actually a special case; the set labels between the two selections are compared and the sub-expressions corresponding to unique labels are simply left alone to be projected as-is; if two labels are shared between the selections however, the sub-expressions corresponding to those labels are recursively merged together.
+
+In the example above, since the selections in either branch do not match, they do not need to be merged together.
+
+It should be noted that the reason why unique labels between selections do not need to be merged is because the @racket[sel~>] form also generates the code needed to communicate the appropriate @italic{Knowledge of Choice}; merging is only needed in the absence of @italic{Knowledge of Choice}.
 
 @subsection{Simplified Bookseller Example in Choret}
 
