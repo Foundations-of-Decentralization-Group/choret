@@ -23,7 +23,7 @@
                #,(if (attribute OVERRIDE)
                      #`(syntax-case STX ()
                          [(... (_ ARG ...))
-                          (syntax (#,(attribute OVERRIDE) (... (~@ ARG ...))))])
+                          (syntax (#,(attribute OVERRIDE) ARG (... ...)))])
                      #'(raise-syntax-error
                         #f
                         (string-append
