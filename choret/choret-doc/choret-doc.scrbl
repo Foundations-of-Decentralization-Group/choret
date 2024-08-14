@@ -17,7 +17,7 @@ Currently Choret's unit tests have been tested and passed on Racket versions 6.6
 @subsection{Installing Choret as a Library}
 
 As of right now Choret is not yet availible via the Racket Package Index. Instead Choret needs to be installed manually, which is not @italic{too} difficult. First clone the Choret repository: @url{https://github.com/Foundations-of-Decentralization-Group/choret}. Once the repository has been cloned, say to a directory named "choret", there should be another sub-directory named "choret"; change directory (@tt{cd}) into that directory and run the following command:
-@verbatim|{raco pkg install}|
+@commandline{raco pkg install}
 
 @section{What is Choreographic Programming?}
 
@@ -81,15 +81,11 @@ Seems simple enough, this is what such a program might look like in Racket, with
 )
 
 This seems correct, and given that the buyer's budget (20) is lower than the cost of the book (25) the expected result of this program would be:
-@verbatim|{
-Nevermind!
-Let me know if you change your mind!
-}|
+@commandline{Nevermind!}
+@commandline{Let me know if you change your mind!}
 However the actual output of
 this program is:
-@verbatim|{
-Nevermind!
-}|
+@commandline{Nevermind!}
 What's the problem? Well, the buyer needs to let the seller know if they are going to buy the book, but in the buyer thread code, the buyer only communicates the @italic{knowledge of this choice} if decides to buy the book; when the buyer does not buy the book it leaves the seller deadlocked waiting on the buyer's decision.
 
 Even though this may be a trivial example, it emphasizes the importance of correctly matching sends and recieves; in much more complicated programs it may be much harder to correctly do this by hand.
@@ -339,11 +335,14 @@ The previous bookseller example in Choret was a bit verbose and repetitive, but 
 }
 
 @defform[#:literals (at)
-         (let ([at-id global-expr] ...) global-body ...+)]{
+         (let ([id global-expr] ...) global-body ...+)
+         #:grammar ([id
+                     (at location local-id)
+                     global-id])]{
  Evaluates the @racket[global-expr]s left-to-right, where each expression
  evaluates to a located value, binding the result of each to the identifier of
- its corresponding @racket[at-id]. It is expected that the location of each
- value matches its corresponding @racket[at-id].
+ its corresponding @racket[id]. @racket[id] may either be a local variable or a
+ choreographic variable.
 }
 
 @defform[#:literals (at)
