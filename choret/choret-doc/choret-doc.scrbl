@@ -12,12 +12,7 @@ Choret is an in-development Racket library which allows for choreographic progra
 
 @subsection{Requirements to Run}
 
-Currently Choret requires Racket 8.3 or greater. Unfortunately, some Linux distros (such as those based off of Ubuntu 22.04) ship with older versions of Racket by default. If your distribution does this, consider using the @tt{cross} package: @url{https://docs.racket-lang.org/raco-cross/index.html}.
-
-To use the @tt{cross} package, first the package must be installed with the following command:
-@verbatim|{raco pkg install cross}|
-To run Racket with a different version use the command:
-@verbatim|{raco cross --version 8.3 racket}|
+Currently Choret's unit tests have been tested and passed on Racket versions 6.6, 6.12, 7.0, 7.4, 7.9, 8.2, and 8.13. Choret may work as intended on other versions of Racket as well, although, if you are experiencing issues on a different version of Racket, then you might want to consider using the the @tt{cross} package: @url{https://docs.racket-lang.org/raco-cross/index.html} with the @verbatim|{--version}| flag or consider installing a newer version of Racket.
 
 @subsection{Installing Choret as a Library}
 
