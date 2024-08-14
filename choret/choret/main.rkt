@@ -95,20 +95,18 @@
      (if (cur-process? #'SEND-PROC)
          #'(begin (choose! RECV-PROC LABEL GEXPR) ...)
          #`(begin
-             #,@(filter
-                 values
-                 (for/list ([recv-proc (syntax->list #'(RECV-PROC ...))]
-                            [gexpr (syntax->list #'(GEXPR ...))]
-                            [label (syntax->list #'(LABEL ...))])
-                   (if (eq-process? #'SEND-PROC recv-proc)
-                       (raise-syntax-error
-                        #f
-                        "Process cannot send a selection to itself!"
-                        #'SEND-PROC
-                        recv-proc)
-                       (if (cur-process? recv-proc)
-                           #`(branch? SEND-PROC [#,label #,gexpr])
-                           #f))))))]))
+             #,@(for/list ([recv-proc (syntax->list #'(RECV-PROC ...))]
+                           [gexpr (syntax->list #'(GEXPR ...))]
+                           [label (syntax->list #'(LABEL ...))])
+                  (if (eq-process? #'SEND-PROC recv-proc)
+                      (raise-syntax-error
+                       #f
+                       "Process cannot send a selection to itself!"
+                       #'SEND-PROC
+                       recv-proc)
+                      (if (cur-process? recv-proc)
+                          #`(branch? SEND-PROC [#,label #,gexpr])
+                          (void))))))]))
 
 
 ;;; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
