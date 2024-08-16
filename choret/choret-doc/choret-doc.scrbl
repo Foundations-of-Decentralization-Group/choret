@@ -21,9 +21,9 @@ As of right now Choret is not yet availible via the Racket Package Index. Instea
 
 @section{What is Choreographic Programming?}
 
-In a traditional system with multiple threads/processes/etc. interacting with each other, the programmer has to carefully write multiple independent programs while also avoiding things such as deadlock or livelock. In particular, encoding a pattern of sends and recieves between processes in a system can be error prone since it is relatively easy to write mismatched send and recieve actions between two separately maintained programs; it is entirely up to the programmer to maintain the state and invariants of the entire system.
+In a traditional system with multiple @italic{locations} (threads, processes, etc.) interacting with each other, the programmer has to carefully write multiple independent programs while also avoiding things such as deadlock or livelock. In particular, encoding a pattern of sends and recieves between locations in a system can be error prone since it is relatively easy to write mismatched send and recieve actions between two separately maintained programs; it is entirely up to the programmer to maintain the state and invariants of the entire system.
 
-Choreographic programming aims to solve this problem by allowing programmers to give a @italic{global} description of the program. In other words, the programmer writes a single program that describes the logic of the system/protocol as a whole, explicity specifying the when data needs to be transferred from one participant to another.
+Choreographic programming aims to solve this problem by allowing programmers to give a "global" description of the program. In other words, the programmer writes a single program that describes the logic of the system/protocol as a whole, explicity specifying the when data needs to be transferred from one participant to another.
 
 @subsection{The Bookseller Example in Racket}
 
@@ -107,7 +107,7 @@ Looking back in the last section, the bookseller system was described as a serie
  #:style 'ordered
 ]
 
-This English prose description already describes what the system should do in a "global" manner. This can be translated into pseudo-code:
+This English prose description already describes what the system should do in a global manner. This can be translated into pseudo-code:
 
 @verbatim|{
 buyer.title ~> seller.title
@@ -161,17 +161,17 @@ The above pseudo-code basically describes a choreographic program! Finally here 
 
 This is a somewhat verbose piece of code so here is a breakdown of what is going on:
 
-First, there are these @racket[(define (at LOCATION ID) EXPR)] forms which define a variable which is located at the process indicated by @racket[LOCATION]; @racket[EXPR] can be any Choret form which evaluates to a value that is also located at @racket[LOCATION].
+First, there are these @racket[(define (at LOCATION ID) EXPR)] forms which define a variable which is located at @racket[LOCATION]; @racket[EXPR] can be any Choret form which evaluates to a value that is also located at @racket[LOCATION].
 
-There are also communication primitives of the form @racket[(~> (at SENDER LOCAL-EXPR) RECIEVER)], these forms evaluate @racket[LOCAL-EXPR] at the location @racket[SENDER] and produce a value located at the process @racket[RECIEVER]; the underlying implementation executes a @racket[~>] form by sending the result of evaluating @racket[LOCAL-EXPR] and sending the value from @racket[SENDER] to @racket[RECIEVER].
+There are also communication primitives of the form @racket[(~> (at SENDER LOCAL-EXPR) RECIEVER)], these forms evaluate @racket[LOCAL-EXPR] at the location @racket[SENDER] and produce a value located at @racket[RECIEVER]; the underlying implementation executes a @racket[~>] form by sending the result of evaluating @racket[LOCAL-EXPR] and sending the value from @racket[SENDER] to @racket[RECIEVER].
 
-"at" expressions, which have the form @racket[(at LOCATION LOCAL-EXPR)] evaluate @racket[LOCAL-EXPR] as a normal Racket expression at the process indicated by @racket[LOCATION].
+"at" expressions, which have the form @racket[(at LOCATION LOCAL-EXPR)] evaluate @racket[LOCAL-EXPR] as a normal Racket expression located at @racket[LOCATION].
 
 The forms that comprise the first half of the choreography are fairly straightforward, however, things get a little more involved when handling conditionals.
 
 @subsection{Conditional Expressions}
 
-What makes conditional branching difficult in choreographic programming? It helps to think about the code that has to be generated for each process, which is referred to as the @italic{projection} of each process.
+What makes conditional branching difficult in choreographic programming? It helps to think about the code that has to be generated for each location, which is referred to as the @italic{projection} of each location.
 
 Take for example the form
 @racketblock[
@@ -180,7 +180,7 @@ Take for example the form
   (~> (at L1 10) L2))
 ]
 
-The projection for process @racket[L1] is straightforward:
+The projection for location @racket[L1] is straightforward:
 @racketblock[
 (if (equal? x y)
   (send L2 5)
@@ -199,7 +199,7 @@ These subforms for each branch are the same, and thus can be combinded into a si
 (recieve L1)
 ]
 
-This combining of the branches of the @racket[if] form is known as @italic{merging}. In fact whenever an @racket[if] expresssion is projected for processes other than the one in the guard expression (in this case @racket[L1]), the two branches are merged together. Merging is strictly something that is performed at compile time.
+This combining of the branches of the @racket[if] form is known as @italic{merging}. In fact whenever an @racket[if] expresssion is projected for locations other than the one in the guard expression (in this case @racket[L1]), the two branches are merged together. Merging is strictly something that is performed at compile time.
 
 That is all well and good, but what happens if one tries to project the following instead:
 @racketblock[
@@ -218,11 +218,11 @@ There are two problems here. First, since @racket[L2] now needs to do something 
 
 @subsection{Selection and Knowledge of Choice}
 
-The dependency between processes about which branch should be taken is known as @italic{Knowledge of Choice}. To comminicate Knowledge of Choice a message from the deciding process (such as @racket[L1] in the example above) to other dependent processes needs to be sent.
+The dependency between locations about which branch should be taken is known as @italic{Knowledge of Choice}. To comminicate Knowledge of Choice a message from the deciding location (such as @racket[L1] in the example above) to other dependent locations needs to be sent.
 
-In the previous example, it is trivial to understand that @racket[L1] should send @racket[L2] a message about which branch to take. So why not have the compiler just automatically do this for the programmer? A problem arises in programs with more processes; if the compiler does this naively, then it has to send a message to every process, even if not all processes need to know the decision at @racket[L1]; otherwise the compiler needs to automatically infer which processes need Knowledge of Choice, which can be difficult to do.
+In the previous example, it is trivial to understand that @racket[L1] should send @racket[L2] a message about which branch to take. So why not have the compiler just automatically do this for the programmer? A problem arises in programs with more locations; if the compiler does this naively, then it has to send a message to every location, even if not all locations need to know the decision at @racket[L1]; otherwise the compiler needs to automatically infer which locations need Knowledge of Choice, which can be difficult to do.
 
-Instead of doing either of those things, Choret requires the programmer to explicitly state Knowledge of Choice where appropriate. This is accomplished using the @racket[(sel~> SENDER [RECIEVER LABEL EXPR] ...)] form to perform what is known as a @italic{selection}. The selection form can be thought of as sending a message from @racket[SENDER], which should be the process which actually determines whether to take the branch, to a multiple recieving processes, where for each @racket[RECIEVER], @racket[LABEL] is a unique value that represents the branch to be taken and @racket[EXPR] is a Choret expression to be evaluated for that particular branch.
+Instead of doing either of those things, Choret requires the programmer to explicitly state Knowledge of Choice where appropriate. This is accomplished using the @racket[(sel~> SENDER [RECIEVER LABEL EXPR] ...)] form to perform what is known as a @italic{selection}. The selection form can be thought of as sending a message from @racket[SENDER], which should be the location which actually determines whether to take the branch, to a multiple recieving locations, where for each @racket[RECIEVER], @racket[LABEL] is a unique value that represents the branch to be taken and @racket[EXPR] is a Choret expression to be evaluated for that particular branch.
 
 The example from the last section can be updated to use selections as appropriate:
 
@@ -302,13 +302,13 @@ The previous bookseller example in Choret was a bit verbose and repetitive, but 
  Choret forms described below only work inside the body of this macro; otherwise
  they either are undefined (raise a syntax error) or have the meaning of their
  regular Racket counterpart (e.g. @racket[define], @racket[lambda], etc.). The
- list of locations @racket[location ...] defines the set of all
- processes/locations that participate in the choreography.
+ list of locations @racket[location ...] defines the set of all locations that
+ participate in the choreography.
 }
 
 @defform[(at location local-expr)]{
- Evaluates @racket[local-expr] at the process location @racket[location]. Not to
- be confused with the use of at forms used in binding locations such as in
+ Evaluates @racket[local-expr] at the location @racket[location]. Not to be
+ confused with the use of at forms used in binding locations such as in
  @racket[define], @racket[lambda], and @racket[let], which expect an identifier.
 }
 
@@ -373,6 +373,6 @@ The previous bookseller example in Choret was a bit verbose and repetitive, but 
  Creates a choreographic function which accepts zero or more choreographic
  values. Each @racket[binding-form] is either a located @racket[local-id], which
  represents an argument which expects a value located at @racket[location], or a
- @racket[global-id], which is a global choreographic variable.
+ @racket[global-id], which is a choreographic variable.
 }
 
