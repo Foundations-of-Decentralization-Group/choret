@@ -384,6 +384,7 @@ Being an experimental library, there are still many things that could be added a
  @item{A type system for tracking and checking located-types and choreographic function types}
  @item{Implement Location Polymorphism}
  @item{Prohibit choreographic variables from being used directly in local expressions}
+ @item{More unit tests and measurement of code coverage}
  @item{Better logging functionality}
  @item{Better error messages when projecting code}
  @item{Wrap all choreographic values with some kind of "chor-value" struct to provide better runtime errors (and perhaps other functionality)}
