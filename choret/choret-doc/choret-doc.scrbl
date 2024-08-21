@@ -16,8 +16,19 @@ Currently Choret's unit tests have been tested and passed on Racket versions 6.6
 
 @subsection{Installing Choret as a Library}
 
-As of right now Choret is not yet availible via the Racket Package Index. Instead Choret needs to be installed manually, which is not @italic{too} difficult. First clone the Choret repository: @url{https://github.com/Foundations-of-Decentralization-Group/choret}. Once the repository has been cloned, say to a directory named "choret", there should be another sub-directory named "choret"; change directory (@tt{cd}) into that directory and run the following command:
+As of right now Choret is not yet availible via the Racket Package Index. However, Choret can be installed by using the command:
+@commandline{raco pkg install https://github.com/Foundations-of-Decentralization-Group/choret.git?path=choret}
+which instructs @tt{raco} to install it directly from the GitHub repository.
+
+Alternatively, Choret can be installed manually. First clone the Choret repository: @url{https://github.com/Foundations-of-Decentralization-Group/choret}. Once the repository has been cloned, say to a directory named "choret", there should be another sub-directory named "choret"; change directory (@tt{cd}) into that directory and run the following command:
 @commandline{raco pkg install}
+which will install the Choret package as a link to that directory.
+
+For more information about installing packages using @tt{raco}, see the following resources from the Racket documentation:
+@itemlist[
+  @item{Using @tt{raco pkg install}: @url{https://docs.racket-lang.org/pkg/cmdline.html}}
+  @item{Package Sources: @url{https://docs.racket-lang.org/pkg/Package_Concepts.html#(part._concept~3asource)}}
+]
 
 @section{What is Choreographic Programming?}
 
