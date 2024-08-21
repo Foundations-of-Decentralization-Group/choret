@@ -106,7 +106,7 @@
                        recv-proc)
                       (if (cur-process? recv-proc)
                           #`(branch? SEND-PROC [#,label #,gexpr])
-                          (void))))))]))
+                          gexpr)))))]))
 
 
 ;;; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
