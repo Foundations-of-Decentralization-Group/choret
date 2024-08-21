@@ -376,3 +376,21 @@ The previous bookseller example in Choret was a bit verbose and repetitive, but 
  @racket[global-id], which is a choreographic variable.
 }
 
+@section{Future Work}
+
+Being an experimental library, there are still many things that could be added and/or ammended to improve Choret:
+
+@itemlist[
+ @item{A type system for tracking and checking located-types and choreographic function types}
+ @item{Implement Location Polymorphism}
+ @item{Prohibit choreographic variables from being used directly in local expressions}
+ @item{Better logging functionality}
+ @item{Better error messages when projecting code}
+ @item{Wrap all choreographic values with some kind of "chor-value" struct to provide better runtime errors (and perhaps other functionality)}
+ @item{Provide Choret as a proper "#lang" rather than just a library}
+ @item{Allow Choret to create module level definitions}
+ @item{Lift more forms from Racket into Choret}
+ @item{Integrate Choret with Racket Places}
+ @item{Implement a library of convenience functions and macros for syntactic sugar for Choret}
+ @item{Improve the underlying system of macros in "threads-network.rkt" which helps with implementing locations as Racket threads with synchronous channels}
+]
