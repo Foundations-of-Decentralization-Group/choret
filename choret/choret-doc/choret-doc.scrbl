@@ -225,7 +225,7 @@ for @racket[L2]:
   (send L1 10))
 ]
 
-There are two problems here. First, since @racket[L2] now needs to do something different in each branch, there needs to be some way to communicate the knowledge of @racket[L1]'s decision to @racket[L2]. Second, @racket[L2]'s projections of the branches cannot be merged together as they are not identical (the @racket[5] and @racket[10] do not match). In the next section, @italic{slections} will be used to solve both of these problems.
+There are two problems here. First, since @racket[L2] now needs to do something different in each branch, there needs to be some way to communicate the knowledge of @racket[L1]'s decision to @racket[L2]. Second, @racket[L2]'s projections of the branches cannot be merged together as they are not identical (the @racket[5] and @racket[10] do not match). In the next section, @italic{selections} will be used to solve both of these problems.
 
 @subsection{Selection and Knowledge of Choice}
 
@@ -249,7 +249,6 @@ which when projected for @racket[L2] would be something like:
   (sel~> L1 [L2 'not-equal (~> (at L2 10) L1)]))
 ]
 which would be merged into:
-which when projected for @racket[L2] would be something like:
 @racketblock[
 (sel~> L1 [L2 'equal (~> (at L2 5) L1)]
           [L2 'not-equal (~> (at L2 10) L1)])
