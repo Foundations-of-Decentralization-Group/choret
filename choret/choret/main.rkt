@@ -139,6 +139,8 @@
      (if (cur-process? #'AT.process)
          #'(define AT.id BODY-GEXPR ...)
          #'(let () BODY-GEXPR ...))]
+    [(_ (ID ARG ...) BODY ...)
+     #'(define ID (lambda/chor (ARG ...) BODY ...))]
     [(_ ID GEXPR)
      #'(define ID GEXPR)]))
 

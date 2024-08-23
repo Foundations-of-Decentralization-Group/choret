@@ -225,3 +225,16 @@
   (require choret rackunit)
   (chor (l1 l2)
         (~> (at l1 (at l1 5)) l2))))
+
+(test-case
+ "Define lambda syntax sugar"
+ (check-not-syntax-error
+  (require choret rackunit)
+  (chor (l1 l2)
+        (define (F G (at l1 x))
+          (G (at l1 x) (at l2 10)))
+        (define (H (at l1 x) (at l2 y))
+          (let ([(at l1 y) (~> (at l2 y) l1)])
+            (at l1 (+ x y))))
+        (let ([(at l1 res) (F H (at l1 5))])
+          (at l1 (check-equal? res 15))))))
