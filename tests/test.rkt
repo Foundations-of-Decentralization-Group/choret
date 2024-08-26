@@ -238,3 +238,13 @@
             (at l1 (+ x y))))
         (let ([(at l1 res) (F H (at l1 5))])
           (at l1 (check-equal? res 15))))))
+
+(test-case
+    "let* form"
+    (check-not-syntax-error
+     (require choret rackunit)
+     (chor (l1 l2 l3)
+           (let* ([(at l2 x) (~> (at l1 5) l2)]
+                  [(at l3 y) (~> (at l2 x) l3)]
+                  [(at l3 res) (at l3 (+ y 5))])
+             (at l3 (check-equal? res 10))))))

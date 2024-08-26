@@ -117,7 +117,7 @@
 ;;; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
-(define/provide-chor-syntax (let/chor stx) #:override let
+(define-for-syntax (parse-let-body stx)
   (syntax-parse stx
     [(_ ([AT-EXPR VAL-GEXPR] ...) GBODY ...)
      (let ([bindings
@@ -131,7 +131,13 @@
                       #`[AT.id #,val-expr]
                       #`[#,(gensym 'IGNORE-) #,val-expr])]
                  [ID #`(ID #,val-expr)])))])
-       #`(let #,bindings GBODY ...))]))
+       #`(#,bindings GBODY ...))]))
+
+(define/provide-chor-syntax (let/chor stx) #:override let
+  #`(let #,@(parse-let-body stx)))
+
+(define/provide-chor-syntax (let*/chor stx) #:override let*
+  #`(let* #,@(parse-let-body stx)))
 
 (define/provide-chor-syntax (define/chor stx) #:override define
   (syntax-parse stx
