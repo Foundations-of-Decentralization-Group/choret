@@ -91,22 +91,21 @@
 
 (define/provide-chor-syntax (sel~> stx)
   (syntax-parse stx
-    [(_ SEND-PROC [RECV-PROC LABEL GEXPR] ...)
-     (if (cur-process? #'SEND-PROC)
-         #'(begin (choose! RECV-PROC LABEL GEXPR) ...)
-         #`(begin
-             #,@(for/list ([recv-proc (syntax->list #'(RECV-PROC ...))]
-                           [gexpr (syntax->list #'(GEXPR ...))]
-                           [label (syntax->list #'(LABEL ...))])
-                  (if (eq-process? #'SEND-PROC recv-proc)
-                      (raise-syntax-error
-                       #f
-                       "Process cannot send a selection to itself!"
-                       #'SEND-PROC
-                       recv-proc)
-                      (if (cur-process? recv-proc)
-                          #`(branch? SEND-PROC [#,label #,gexpr])
-                          gexpr)))))]))
+    [(_ SEND-PROC ([RECV-PROC LABEL]) GEXPR)
+     (cond
+       [(eq-process? #'SEND-PROC #'RECV-PROC)
+        (raise-syntax-error
+         #f
+         "Process cannot send a selection to itself!"
+         #'SEND-PROC
+         #'RECV-PROC)]
+       [(cur-process? #'SEND-PROC) #'(choose! RECV-PROC LABEL GEXPR)]
+       [(cur-process? #'RECV-PROC) #'(branch? SEND-PROC [LABEL GEXPR])]
+       [else #'GEXPR])]
+    [(_ SEND-PROC ([RECV-PROC LABEL] [RECV-PROC-REST LABEL-REST] ...) GEXPR)
+     #'(sel~> SEND-PROC ([RECV-PROC LABEL])
+              (sel~> SEND-PROC ([RECV-PROC-REST LABEL-REST] ...)
+                     GEXPR))]))
 
 
 ;;; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

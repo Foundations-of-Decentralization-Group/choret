@@ -36,22 +36,39 @@
              #'((require choret)
                 (chor (A B C)
                       (if (at A #t)
-                          (sel~>
-                           A [B 'b0
-                                (sel~> A [C 'c0 EXPR-TRUE])])
-                          (sel~>
-                           A [B LABEL-B-FALSE
-                                (sel~> A [C LABEL-C-FALSE EXPR-FALSE])]))))])
-         #`(test-case
-            #,(string-append
-               "Nested Merges:\n"
-               (format  "  Diff Label B: ~a\n" dlb?)
-               (format  "  Diff Label C: ~a\n" dlc?)
-               (format  "  Diff Projection B: ~a\n" dpb?)
-               (format  "  Diff Projection C: ~a\n" dpc?))
-            #,(if valid?
-                  #`(check-not-syntax-error #,@#'TEST-CODE)
-                  #`(check-has-syntax-error #,@#'TEST-CODE)))))]))
+                          (sel~> A ([B 'b0])
+                                 (sel~> A ([C 'c0]) EXPR-TRUE))
+                          (sel~> A ([B LABEL-B-FALSE])
+                                 (sel~> A ([C LABEL-C-FALSE]) EXPR-FALSE)))))]
+            [TEST-CODE-ALT-SYNTAX
+             #'((require choret)
+                (chor (A B C)
+                      (if (at A #t)
+                          (sel~> A ([B 'b0] [C 'c0])
+                                 EXPR-TRUE)
+                          (sel~> A ([B LABEL-B-FALSE] [C LABEL-C-FALSE])
+                                 EXPR-FALSE))))])
+         #`(begin
+             (test-case
+              #,(string-append
+                 "Nested Merges:\n"
+                 (format  "  Diff Label B: ~a\n" dlb?)
+                 (format  "  Diff Label C: ~a\n" dlc?)
+                 (format  "  Diff Projection B: ~a\n" dpb?)
+                 (format  "  Diff Projection C: ~a\n" dpc?))
+              #,(if valid?
+                    #`(check-not-syntax-error #,@#'TEST-CODE)
+                    #`(check-has-syntax-error #,@#'TEST-CODE)))
+             (test-case
+              #,(string-append
+                 "Nested Merges with Alternative Syntax:\n"
+                 (format  "  Diff Label B: ~a\n" dlb?)
+                 (format  "  Diff Label C: ~a\n" dlc?)
+                 (format  "  Diff Projection B: ~a\n" dpb?)
+                 (format  "  Diff Projection C: ~a\n" dpc?))
+              #,(if valid?
+                    #`(check-not-syntax-error #,@#'TEST-CODE-ALT-SYNTAX)
+                    #`(check-has-syntax-error #,@#'TEST-CODE-ALT-SYNTAX))))))]))
 
 ;; Macro to specify multiple "test-nested-merging" tests at once.
 (define-syntax-rule (nested-merging-tests [ARG ...] ...)
