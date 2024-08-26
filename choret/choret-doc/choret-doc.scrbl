@@ -342,10 +342,11 @@ The previous bookseller example in Choret was a bit verbose and repetitive, but 
 }
 
 @defform[#:literals (at)
-         (sel~> sender [reciever label global-expr] ...)]{
+         (sel~> sender ([reciever label] ...) global-expr)]{
  Communicates knowledge of choice from the location @racket[sender] to each
  @racket[reciever]. @racket[label] is a symbol that represents which branch of
- execution an @racket[if] branch takes.
+ execution an @racket[if] branch takes. Multiple
+ @racket[reciever]-@racket[label] pairs correspond to nested selections.
 }
 
 @defform*[#:literals (at)
