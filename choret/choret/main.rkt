@@ -3,6 +3,7 @@
 (require "define-chor-syntax.rkt"
          "threads-network.rkt"
          racket/stxparam
+         racket/splicing
          racket/block
          (for-syntax racket/base
                      racket/syntax
@@ -74,10 +75,9 @@
 
 (define/provide-chor-syntax (at stx)
   (syntax-parse stx
-    [(_ PROC LEXPR)
+    [(_ PROC LBODY ...)
      (if (cur-process? #'PROC)
-         #'(syntax-parameterize ([in-global-expr #f])
-             LEXPR)
+         #'(splicing-syntax-parameterize ([in-global-expr #f]) LBODY ...)
          #'(void))]))
 
 (define/provide-chor-syntax (~> stx)
@@ -88,6 +88,11 @@
            [(cur-process? #'RECV-PROC)
             #`(recv SEND-AT.PROCESS 'void)]
            [else #'(void)])]))
+
+(define/provide-chor-syntax (define/<~ stx)
+  (syntax-parse stx
+    [(_ ((~datum at) RECV-PROC ID) SENDER:at-expr)
+     #'(define/chor (at RECV-PROC ID) (~> SENDER RECV-PROC))]))
 
 (define/provide-chor-syntax (sel~> stx)
   (syntax-parse stx

@@ -244,3 +244,22 @@
                   [(at l3 y) (~> (at l2 x) l3)]
                   [(at l3 res) (at l3 (+ y 5))])
              (at l3 (check-equal? res 10))))))
+
+(test-case
+ "define/<~ form"
+ (check-not-syntax-error
+  (require choret rackunit)
+  (chor (l1 l2)
+        (define (at l1 x) (at l1 10))
+        (define/<~ (at l2 x) (at l1 x))
+        (at l2 (check-equal? x 10)))))
+
+(test-case
+ "splicing at form"
+ (check-not-syntax-error
+  (require choret rackunit)
+  (chor (l1 l2)
+        (at l1
+            (define x 10)
+            (define (f arg) (+ arg 1)))
+        (at l1 (check-equal? (f x) 11)))))
