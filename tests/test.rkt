@@ -35,8 +35,8 @@
         (define (at l2 x) 0)
         (define (at l2 y) 0)
         (if (at l1 #f)
-            (sel~> l1 [l2 'x (set! (at l2 x) (~> (at l1 10) l2))])
-            (sel~> l1 [l2 'y (set! (at l2 y) (~> (at l1 10) l2))]))
+            (sel~> l1 ([l2 'x]) (set! (at l2 x) (~> (at l1 10) l2)))
+            (sel~> l1 ([l2 'y]) (set! (at l2 y) (~> (at l1 10) l2))))
         (at l2 (check-equal? x 0))
         (at l2 (check-equal? y 10)))))
 
@@ -47,19 +47,15 @@
   (chor (l1 l2)
         (define (at l2 x) 0)
         (if (at l1 #t)
-            (sel~> l1
-                   [l2 'test1
-                       (begin (at l2 (println 1))
-                              (if (at l1 #t)
-                                  (sel~> l1
-                                         [l2 'test3
-                                             (at l2 (println 3))])
-                                  (sel~> l1
-                                         [l2 'test4
-                                             (at l2 (println 4))])))])
-            (sel~> l1
-                   [l2 'test2
-                       (begin (at l2 (println 2)))]))
+            (sel~> l1 ([l2 'test1])
+                   (begin (at l2 (println 1))
+                          (if (at l1 #t)
+                              (sel~> l1 ([l2 'test3])
+                                     (at l2 (println 3)))
+                              (sel~> l1 ([l2 'test4])
+                                     (at l2 (println 4))))))
+            (sel~> l1 ([l2 'test2])
+                   (begin (at l2 (println 2)))))
         (at l2 (println x)))))
 
 (test-case
@@ -71,11 +67,11 @@
         (define (at l2 res)
           (if (at l1 #t)
               (if (at l1 #f)
-                  (sel~> l1 [l2 'test1 (at l2 1)])
-                  (sel~> l1 [l2 'test2 (at l2 2)]))
+                  (sel~> l1 ([l2 'test1]) (at l2 1))
+                  (sel~> l1 ([l2 'test2]) (at l2 2)))
               (if (at l1 #t)
-                  (sel~> l1 [l2 'test2 (at l2 2)])
-                  (sel~> l1 [l2 'test3 (at l2 3)]))))
+                  (sel~> l1 ([l2 'test2]) (at l2 2))
+                  (sel~> l1 ([l2 'test3]) (at l2 3)))))
         (at l2 (println res)))))
 
 (test-case
@@ -225,3 +221,45 @@
   (require choret rackunit)
   (chor (l1 l2)
         (~> (at l1 (at l1 5)) l2))))
+
+(test-case
+ "Define lambda syntax sugar"
+ (check-not-syntax-error
+  (require choret rackunit)
+  (chor (l1 l2)
+        (define (F G (at l1 x))
+          (G (at l1 x) (at l2 10)))
+        (define (H (at l1 x) (at l2 y))
+          (let ([(at l1 y) (~> (at l2 y) l1)])
+            (at l1 (+ x y))))
+        (let ([(at l1 res) (F H (at l1 5))])
+          (at l1 (check-equal? res 15))))))
+
+(test-case
+    "let* form"
+    (check-not-syntax-error
+     (require choret rackunit)
+     (chor (l1 l2 l3)
+           (let* ([(at l2 x) (~> (at l1 5) l2)]
+                  [(at l3 y) (~> (at l2 x) l3)]
+                  [(at l3 res) (at l3 (+ y 5))])
+             (at l3 (check-equal? res 10))))))
+
+(test-case
+ "define/<~ form"
+ (check-not-syntax-error
+  (require choret rackunit)
+  (chor (l1 l2)
+        (define (at l1 x) (at l1 10))
+        (define/<~ (at l2 x) (at l1 x))
+        (at l2 (check-equal? x 10)))))
+
+(test-case
+ "splicing at form"
+ (check-not-syntax-error
+  (require choret rackunit)
+  (chor (l1 l2)
+        (at l1
+            (define x 10)
+            (define (f arg) (+ arg 1)))
+        (at l1 (check-equal? (f x) 11)))))

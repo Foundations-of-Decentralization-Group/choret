@@ -20,14 +20,10 @@
           (let ([(at Seller b) (~> (at Buyer book-title) Seller)])
             (let ([(at Buyer decision) (F (at Seller (hash-ref prices b)))])
               (if (at Buyer decision)
-                  (sel~> Buyer
-                         [Seller
-                          'L
-                          (~> (at Seller (get-delivery-date b)) Buyer)])
-                  (sel~> Buyer
-                         [Seller
-                          'R
-                          (at Buyer #f)]))))))
+                  (sel~> Buyer ([Seller 'L])
+                         (~> (at Seller (get-delivery-date b)) Buyer))
+                  (sel~> Buyer ([Seller 'R])
+                         (at Buyer #f)))))))
 
       (define Simple-Decision
         (lambda ((at Seller p))
