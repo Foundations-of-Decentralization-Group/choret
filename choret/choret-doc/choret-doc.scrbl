@@ -317,10 +317,13 @@ The previous bookseller example in Choret was a bit verbose and repetitive, but 
  participate in the choreography.
 }
 
-@defform[(at location local-expr)]{
- Evaluates @racket[local-expr] at the location @racket[location]. Not to be
- confused with the use of at forms used in binding locations such as in
- @racket[define], @racket[lambda], and @racket[let], which expect an identifier.
+@defform[(at location local-body ...)]{
+ Evaluates @racket[local-body ...] at the location @racket[location]. If a
+ @racket[local-form] is a binding form the binding is spliced into its
+ surrounding context, just like a @racket[begin] form. This definition is not to
+ be confused with the use of @racket[at] forms used in binding locations such as
+ in @racket[define], @racket[lambda], and @racket[let], which expect an
+ identifier.
 }
 
 @defform[#:literals (at)
@@ -359,6 +362,20 @@ The previous bookseller example in Choret was a bit verbose and repetitive, but 
  @racket[local-id] located at @racket[location].
 }
 
+@specform[#:literals (at)
+          (define (global-id binding-form ...) global-body ...+)]{
+ Syntactic sugar, equivalent to:
+
+ @racket[(define global-id (lambda (binding-form ...) global-body ...))]
+}
+
+@defform[#:literals (at)
+         (define/<~ (at reciever id) (at sender local-expr))]{
+ Syntactic sugar, equivalent to:
+
+ @racket[(define (at reciever id) (~> (at sender local-expr) reciever))]
+}
+
 @defform*[#:literals (at)
           ((set! (at location local-id) global-expr)
            (set! global-id global-expr))]{
@@ -375,6 +392,18 @@ The previous bookseller example in Choret was a bit verbose and repetitive, but 
  evaluates to a located value, binding the result of each to the identifier of
  its corresponding @racket[id]. @racket[id] may either be a local variable or a
  choreographic variable.
+}
+
+@defform[#:literals (at)
+         (let* ([id global-expr] ...) global-body ...+)
+         #:grammar ([id
+                     (at location local-id)
+                     global-id])]{
+ Evaluates the @racket[global-expr]s left-to-right, where each expression
+ evaluates to a located value, binding the result of each to the identifier of
+ its corresponding @racket[id]. @racket[id] may either be a local variable or a
+ choreographic variable. Like the @racket[let*] form in Racket, the binding of
+ each identifier is availible in subsequent @racket[global-body] forms.
 }
 
 @defform[#:literals (at)
