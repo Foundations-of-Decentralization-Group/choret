@@ -3,6 +3,7 @@
 (require "define-chor-syntax.rkt"
          "threads-network.rkt"
          racket/stxparam
+         racket/splicing
          racket/block
          (for-syntax racket/base
                      racket/syntax
@@ -74,10 +75,9 @@
 
 (define/provide-chor-syntax (at stx)
   (syntax-parse stx
-    [(_ PROC LEXPR)
+    [(_ PROC LBODY ...)
      (if (cur-process? #'PROC)
-         #'(syntax-parameterize ([in-global-expr #f])
-             LEXPR)
+         #'(splicing-syntax-parameterize ([in-global-expr #f]) LBODY ...)
          #'(void))]))
 
 (define/provide-chor-syntax (~> stx)
@@ -89,24 +89,28 @@
             #`(recv SEND-AT.PROCESS 'void)]
            [else #'(void)])]))
 
+(define/provide-chor-syntax (define/<~ stx)
+  (syntax-parse stx
+    [(_ ((~datum at) RECV-PROC ID) SENDER:at-expr)
+     #'(define/chor (at RECV-PROC ID) (~> SENDER RECV-PROC))]))
+
 (define/provide-chor-syntax (sel~> stx)
   (syntax-parse stx
-    [(_ SEND-PROC [RECV-PROC LABEL GEXPR] ...)
-     (if (cur-process? #'SEND-PROC)
-         #'(begin (choose! RECV-PROC LABEL GEXPR) ...)
-         #`(begin
-             #,@(for/list ([recv-proc (syntax->list #'(RECV-PROC ...))]
-                           [gexpr (syntax->list #'(GEXPR ...))]
-                           [label (syntax->list #'(LABEL ...))])
-                  (if (eq-process? #'SEND-PROC recv-proc)
-                      (raise-syntax-error
-                       #f
-                       "Process cannot send a selection to itself!"
-                       #'SEND-PROC
-                       recv-proc)
-                      (if (cur-process? recv-proc)
-                          #`(branch? SEND-PROC [#,label #,gexpr])
-                          gexpr)))))]))
+    [(_ SEND-PROC ([RECV-PROC LABEL]) GEXPR)
+     (cond
+       [(eq-process? #'SEND-PROC #'RECV-PROC)
+        (raise-syntax-error
+         #f
+         "Process cannot send a selection to itself!"
+         #'SEND-PROC
+         #'RECV-PROC)]
+       [(cur-process? #'SEND-PROC) #'(choose! RECV-PROC LABEL GEXPR)]
+       [(cur-process? #'RECV-PROC) #'(branch? SEND-PROC [LABEL GEXPR])]
+       [else #'GEXPR])]
+    [(_ SEND-PROC ([RECV-PROC LABEL] [RECV-PROC-REST LABEL-REST] ...) GEXPR)
+     #'(sel~> SEND-PROC ([RECV-PROC LABEL])
+              (sel~> SEND-PROC ([RECV-PROC-REST LABEL-REST] ...)
+                     GEXPR))]))
 
 
 ;;; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -117,7 +121,7 @@
 ;;; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
-(define/provide-chor-syntax (let/chor stx) #:override let
+(define-for-syntax (parse-let-body stx)
   (syntax-parse stx
     [(_ ([AT-EXPR VAL-GEXPR] ...) GBODY ...)
      (let ([bindings
@@ -131,7 +135,13 @@
                       #`[AT.id #,val-expr]
                       #`[#,(gensym 'IGNORE-) #,val-expr])]
                  [ID #`(ID #,val-expr)])))])
-       #`(let #,bindings GBODY ...))]))
+       #`(#,bindings GBODY ...))]))
+
+(define/provide-chor-syntax (let/chor stx) #:override let
+  #`(let #,@(parse-let-body stx)))
+
+(define/provide-chor-syntax (let*/chor stx) #:override let*
+  #`(let* #,@(parse-let-body stx)))
 
 (define/provide-chor-syntax (define/chor stx) #:override define
   (syntax-parse stx
@@ -139,6 +149,8 @@
      (if (cur-process? #'AT.process)
          #'(define AT.id BODY-GEXPR ...)
          #'(let () BODY-GEXPR ...))]
+    [(_ (ID ARG ...) BODY ...)
+     #'(define ID (lambda/chor (ARG ...) BODY ...))]
     [(_ ID GEXPR)
      #'(define ID GEXPR)]))
 
