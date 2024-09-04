@@ -38,9 +38,11 @@
   (if (and (equal? 0 CMD) ...) 0 1))
 
 (define (run-tests version vm)
+  (raco-cross version vm "pkg" "remove" "choret")
   (raco-cross
-   #:output #f
-   version vm "pkg" "install" "--batch" "--auto" "--copy" "../choret")
+   version
+   vm
+   "pkg" "install" "--batch" "--auto" "--copy" "../choret")
   (define result
     (and-commands
      (raco-cross version vm "make" "test-all.rkt")
