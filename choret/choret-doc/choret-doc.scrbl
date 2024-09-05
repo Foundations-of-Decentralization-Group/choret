@@ -150,24 +150,23 @@ The above pseudo-code basically describes a choreographic program! Finally here 
       (define (at seller price) (at seller (hash-ref price-catalog book-title)))
       (define (at buyer price) (~> (at seller price) buyer))
       (if (at buyer (< price budget))
-          (sel~> buyer
-                 [seller 'buy-book
-                         (let ()
-                           (define (at seller date)
-                             (at seller "January 1, 1970"))
-                           (define (at buyer date)
-                             (~> (at seller date) buyer))
-                           (at buyer
-                               (printf
-                                "My book should arrive on ~a!~n"
-                                date)))])
-          (sel~> buyer
-                 [seller 'reject-book
-                         (begin
-                           (at buyer (printf "Nevermind!~n"))
-                           (at seller
-                               (printf
-                                "Let me know if you change your mind!~n")))])))
+          (sel~> buyer ([seller 'buy-book])
+                 (let ()
+                   (define (at seller date)
+                     (at seller "January 1, 1970"))
+                   (define (at buyer date)
+                     (~> (at seller date) buyer))
+                   (at buyer
+                       (printf
+                        "My book should arrive on ~a!~n"
+                        date))))
+          (sel~> buyer ([seller 'reject-book])
+                 (begin
+                   (at buyer (printf "Nevermind!~n"))
+                   (at seller
+                       (printf
+                        "Let me know if you change your mind!~n"))))))
+
 )
 
 This is a somewhat verbose piece of code so here is a breakdown of what is going on:
@@ -239,19 +238,19 @@ The example from the last section can be updated to use selections as appropriat
 
 @racketblock[
 (if (at L1 (equal? x y))
-  (sel~> L1 [L2 'equal (~> (at L2 5) L1)])
-  (sel~> L1 [L2 'not-equal (~> (at L2 10) L1)]))
+  (sel~> L1 ([L2 'equal]) (~> (at L2 5) L1))
+  (sel~> L1 ([L2 'not-equal]) (~> (at L2 10) L1)))
 ]
 which when projected for @racket[L2] would be something like:
 @racketblock[
 (merge
-  (sel~> L1 [L2 'equal (~> (at L2 5) L1)])
-  (sel~> L1 [L2 'not-equal (~> (at L2 10) L1)]))
+  (branch? L1 [L2 'equal (~> (at L2 5) L1)])
+  (branch? L1 [L2 'not-equal (~> (at L2 10) L1)]))
 ]
 which would be merged into:
 @racketblock[
-(sel~> L1 [L2 'equal (~> (at L2 5) L1)]
-          [L2 'not-equal (~> (at L2 10) L1)])
+(branch? L1 [L2 'equal (~> (at L2 5) L1)]
+            [L2 'not-equal (~> (at L2 10) L1)])
 ]
 which would expand into:
 @racketblock[
@@ -286,21 +285,19 @@ The previous bookseller example in Choret was a bit verbose and repetitive, but 
           (~> (at seller (hash-ref price-catalog book-title)) buyer)))
 
       (if (at buyer (< price budget))
-          (sel~> buyer
-                 [seller 'buy-book
-                         (let ([(at buyer date)
-                                (~> (at seller "January 1, 1970") buyer)])
-                           (at buyer
-                               (printf
-                                "My book should arrive on ~a!~n"
-                                date)))])
-          (sel~> buyer
-                 [seller 'reject-book
-                         (begin
-                           (at buyer (printf "Nevermind!~n"))
-                           (at seller
-                               (printf
-                                "Let me know if you change your mind!~n")))])))
+          (sel~> buyer ([seller 'buy-book])
+                 (let ([(at buyer date)
+                        (~> (at seller "January 1, 1970") buyer)])
+                   (at buyer
+                       (printf
+                        "My book should arrive on ~a!~n"
+                        date))))
+          (sel~> buyer ([seller 'reject-book])
+                 (begin
+                   (at buyer (printf "Nevermind!~n"))
+                   (at seller
+                       (printf
+                        "Let me know if you change your mind!~n"))))))
 )
 
 @section{Choret Forms}
