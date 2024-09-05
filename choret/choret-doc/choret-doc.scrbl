@@ -150,24 +150,23 @@ The above pseudo-code basically describes a choreographic program! Finally here 
       (define (at seller price) (at seller (hash-ref price-catalog book-title)))
       (define (at buyer price) (~> (at seller price) buyer))
       (if (at buyer (< price budget))
-          (sel~> buyer
-                 [seller 'buy-book
-                         (let ()
-                           (define (at seller date)
-                             (at seller "January 1, 1970"))
-                           (define (at buyer date)
-                             (~> (at seller date) buyer))
-                           (at buyer
-                               (printf
-                                "My book should arrive on ~a!~n"
-                                date)))])
-          (sel~> buyer
-                 [seller 'reject-book
-                         (begin
-                           (at buyer (printf "Nevermind!~n"))
-                           (at seller
-                               (printf
-                                "Let me know if you change your mind!~n")))])))
+          (sel~> buyer ([seller 'buy-book])
+                 (let ()
+                   (define (at seller date)
+                     (at seller "January 1, 1970"))
+                   (define (at buyer date)
+                     (~> (at seller date) buyer))
+                   (at buyer
+                       (printf
+                        "My book should arrive on ~a!~n"
+                        date))))
+          (sel~> buyer ([seller 'reject-book])
+                 (begin
+                   (at buyer (printf "Nevermind!~n"))
+                   (at seller
+                       (printf
+                        "Let me know if you change your mind!~n"))))))
+
 )
 
 This is a somewhat verbose piece of code so here is a breakdown of what is going on:
@@ -233,25 +232,25 @@ The dependency between locations about which branch should be taken is known as 
 
 In the previous example, it is trivial to understand that @racket[L1] should send @racket[L2] a message about which branch to take. So why not have the compiler just automatically do this for the programmer? A problem arises in programs with more locations; if the compiler does this naively, then it has to send a message to every location, even if not all locations need to know the decision at @racket[L1]; otherwise the compiler needs to automatically infer which locations need Knowledge of Choice, which can be difficult to do.
 
-Instead of doing either of those things, Choret requires the programmer to explicitly state Knowledge of Choice where appropriate. This is accomplished using the @racket[(sel~> SENDER [RECIEVER LABEL EXPR] ...)] form to perform what is known as a @italic{selection}. The selection form can be thought of as sending a message from @racket[SENDER], which should be the location which actually determines whether to take the branch, to a multiple recieving locations, where for each @racket[RECIEVER], @racket[LABEL] is a unique value that represents the branch to be taken and @racket[EXPR] is a Choret expression to be evaluated for that particular branch.
+Instead of doing either of those things, Choret requires the programmer to explicitly state Knowledge of Choice where appropriate. This is accomplished using the @racket[(sel~> SENDER ([RECIEVER LABEL] ...) EXPR)] form to perform what is known as a @italic{selection}. The selection form can be thought of as sending a message from @racket[SENDER], which should be the location which actually determines whether to take the branch, to a multiple recieving locations, where for each @racket[RECIEVER], @racket[LABEL] is a unique value that represents the branch to be taken and @racket[EXPR] is a Choret expression to be evaluated for that particular branch.
 
 The example from the last section can be updated to use selections as appropriate:
 
 @racketblock[
 (if (at L1 (equal? x y))
-  (sel~> L1 [L2 'equal (~> (at L2 5) L1)])
-  (sel~> L1 [L2 'not-equal (~> (at L2 10) L1)]))
+  (sel~> L1 ([L2 'equal]) (~> (at L2 5) L1))
+  (sel~> L1 ([L2 'not-equal]) (~> (at L2 10) L1)))
 ]
 which when projected for @racket[L2] would be something like:
 @racketblock[
 (merge
-  (sel~> L1 [L2 'equal (~> (at L2 5) L1)])
-  (sel~> L1 [L2 'not-equal (~> (at L2 10) L1)]))
+  (branch? L1 [L2 'equal (~> (at L2 5) L1)])
+  (branch? L1 [L2 'not-equal (~> (at L2 10) L1)]))
 ]
 which would be merged into:
 @racketblock[
-(sel~> L1 [L2 'equal (~> (at L2 5) L1)]
-          [L2 'not-equal (~> (at L2 10) L1)])
+(branch? L1 [L2 'equal (~> (at L2 5) L1)]
+            [L2 'not-equal (~> (at L2 10) L1)])
 ]
 which would expand into:
 @racketblock[
@@ -286,21 +285,19 @@ The previous bookseller example in Choret was a bit verbose and repetitive, but 
           (~> (at seller (hash-ref price-catalog book-title)) buyer)))
 
       (if (at buyer (< price budget))
-          (sel~> buyer
-                 [seller 'buy-book
-                         (let ([(at buyer date)
-                                (~> (at seller "January 1, 1970") buyer)])
-                           (at buyer
-                               (printf
-                                "My book should arrive on ~a!~n"
-                                date)))])
-          (sel~> buyer
-                 [seller 'reject-book
-                         (begin
-                           (at buyer (printf "Nevermind!~n"))
-                           (at seller
-                               (printf
-                                "Let me know if you change your mind!~n")))])))
+          (sel~> buyer ([seller 'buy-book])
+                 (let ([(at buyer date)
+                        (~> (at seller "January 1, 1970") buyer)])
+                   (at buyer
+                       (printf
+                        "My book should arrive on ~a!~n"
+                        date))))
+          (sel~> buyer ([seller 'reject-book])
+                 (begin
+                   (at buyer (printf "Nevermind!~n"))
+                   (at seller
+                       (printf
+                        "Let me know if you change your mind!~n"))))))
 )
 
 @section{Choret Forms}
